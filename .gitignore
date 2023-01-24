@@ -1,0 +1,6 @@
+*.mat
+*.asv
+synthSingleFrame
+data/*.tif
+*.eps
+output/

@@ -18,12 +18,9 @@ end
 if nargin < 3 % in case we run calibration on specific test image for fig2
 
     % Input parameters
-%         filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp50_018.tif';
-%     filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp100_013.tif';
     filename = chipPars.inputImage; %'data\100x_gain100_lamp50_018.tif';
-%     filename = 'beads_low_conc_100x_gain100_lamp100_013.tif';
     qStar = 0.5; % parameter which controls the false detection rate (FDR)
-    % binWidthPerSigmaBg = 0.4;      % bin width / sigma for background 
+    
     % Images and associated information                             
     im = imread(filename); 
     images.imAverage = double(im);
@@ -34,10 +31,15 @@ if nargin < 3 % in case we run calibration on specific test image for fig2
     showfig = 1;
 
     % estimates for parameters from Mean Variance (MV) callibration
-    gain = mean(chipPars.gain{3});
-    adFactor = mean(chipPars.adFactor);
-    countOffset = mean(chipPars.countOffset{3});
-    roNoise = mean(chipPars.roNoise{3});
+    gain = mean(chipPars.gainQ(3,2)); % based on gain in the image.. 50 100 300..
+    adFactor = mean(chipPars.aduQ(2));
+    countOffset = mean(chipPars.deltaQ(3,2));
+    roNoise = mean(chipPars.sigmaQ(3,2));
+
+%     gain = mean(chipPars.gain{3});
+%     adFactor = mean(chipPars.adFactor);
+%     countOffset = mean(chipPars.countOffset{3});
+%     roNoise = mean(chipPars.roNoise{3});
 else
     gain = chipPars.gain;
     adFactor = chipPars.adFactor;
@@ -47,39 +49,7 @@ else
 
 end
 
-
-% % Experimental information
-% experiment.opticsFile = 'lund_100x_optics.txt'; 
-%                     % Optionally specified optics file location 
-%                     % (full path needed). If this is specified, 
-%                     % the software assumes  the optical setup 
-%                     % to be identical for all images
-% experiment.chipParsFile = 'lund_gain100_chippars.txt'; 
-%                     % Specify file with 
-%                     % chip parameter values 
-                    
-
-
-% Add path to relevant folders
-% addpath('/Users/tobias/Desktop/M_files_JensCodes_modified/photophys_image_analysis/util/binarization_segmentation')
-% addpath('/Users/tobias/Desktop/M_files_JensCodes_modified/photophys_image_analysis/util/emccd_distribution')
-% addpath('/Users/tobias/Desktop/M_files_JensCodes_modified/photophys_image_analysis/util/read_write')
-
-% % Read optics parameters from disc
-% disp(' ')
-% disp('Reading optics parameters from disc.')
-% opticsPars = read_optics_params_from_disc(experiment);
-% pixelSize = opticsPars.pixelSize;
-% disp(' ')
-% 
-% % Read chip parameters from disc
-% disp('Reading chip parameters from disc.')
-% chipPars = read_chip_params_from_disc(experiment);
-% disp(' ')
-
-
 % Show image with contrast set to show noise
-% using imadjust().
 if showfig
     figure
     tiledlayout(1,2,'TileSpacing','compact','Padding','compact')
@@ -95,11 +65,13 @@ if showfig
     hold on    
     % scale bar (ten microns in number of pixels)
     nPixels = 1e4/pixelsize;
-    x = [50, 50 + nPixels ];
-    y = [480 , 480];
+    x = [5, 5 + nPixels ];
+    y = [0.9*size(sampIm,1) , 0.9*size(sampIm,1)];
     plot(x,y,'Linewidth',8,'Color',[1 1 1])
-    text(50,455,'10 \mum','Fontsize',15,'Color',[1 1 1])
-    title('(a)')
+    text(0,0.05,'10 microns','Fontsize',10,'Color',[1 1 1],'Units','normalized')
+    title('(a)','Interpreter','latex')
+%     axis equal
+%     pbaspect([1 0.8 0.8])
 
 end
 
@@ -131,7 +103,7 @@ disp('Generating histogram over pixel intensities')
 binEdges = ceil(L):floor(U); 
 histAll = histcounts(images.imAverage(:),binEdges);    
 disp(' ')   
-
+% hold on
 % Plot histogram
 nexttile     
 binPos = binEdges(1:end-1) + diff(binEdges)/2;
@@ -163,14 +135,15 @@ binPos = binEdges(1:end-1) + diff(binEdges)/2;
 plot(binPos,binCountsFit,'--','Color','black','LineWidth',2)
 
 % Set figure labels, etc
-xlabel('Intensity (photon counts)','Interpreter','latex','FontSize',15)
-ylabel('Counts','Interpreter','latex','FontSize',15)
+xlabel('Image counts','Interpreter','latex')
+ylabel('Histogram counts','Interpreter','latex')
 % set(gca,'Fontsize',15)
 % axis([30 80 0 46000])
-title('(b)')
-
-legendEntry = strcat(['fit, \lambda_{bg} =  ' num2str(lambdaBg,2) ', N_{icr}^{bg}=' num2str(intThreshBg)]);
-lgnd = legend('image counts, true background','image counts, not true background',legendEntry)
+title('(b)','Interpreter','latex')
+% axis equal
+pbaspect([1 0.8 0.8])
+legendEntry = strcat(['Fit, $\lambda_{bg} =  ' num2str(lambdaBg,2) ', N_{icr}^{bg}=' num2str(intThreshBg) '$']);
+lgnd = legend('Image counts, true background','Image counts, not true background',legendEntry,'Interpreter','latex')
 lgnd.Layout.Tile = 'south';
 % print('C:\Users\Lenovo\postdoc\PAPERS\emccd-paper\draft\Figs\Fig4.eps','-depsc','-r300')
 print(outFig,'-depsc','-r300')
@@ -231,20 +204,24 @@ function [lambdaBg,intThreshBg ] = ...
     r = gain/adFactor;
     
     %% Pre-process. If data has two or more wide peaks, algo would fail unless they are well separated.
-    [a,b] = histcounts(intensities);
-    [pk,pos] = findpeaks(imgaussfilt(a,3));
-    if length(pk) > 1
-        intensityVec = intensities(intensities<b(pos(2)));
-    else
-        intensityVec = intensities(:);        
-    end
+    
+%     intensityVec = intensities(:);        
+% 
+%     [a,b] = histcounts(intensities);
+%     [pk,pos] = findpeaks(imgaussfilt(a,3));
+%     if length(pk) > 1
+%         intensityVec = intensities(intensities<b(pos(2)));
+%     else
+%         intensityVec = intensities(:);        
+%     end
 
     % Sort data
-%     intensityVec = intensities(:);
-    sortI = sort(intensityVec);
+    intensityVec = intensities(:);
+    sortI = sort(intensities);
     S = numel(sortI);
     
     m = S;
+    nOutliers = round(m/2);
     
 
     
@@ -255,19 +232,22 @@ function [lambdaBg,intThreshBg ] = ...
                          
      % Recursively reduce the data set until there are no "outliers" left.
     hasOutliers = 1;
-    nOutliers = 0;
+%     nOutliers = 0;
     runs = 0;
-    while hasOutliers
+    diffLambdas = Inf;
+    lambdaPrev = 0;
+    
+    structRes = [];
+    while hasOutliers && runs < 10 && diffLambdas > 0.00001
         runs = runs + 1;
         % Remove outliers
-        m = m - nOutliers;
+        m = S - nOutliers;
         sortTruncI = sortI(1:m);
         % Fit lambda
         lamGuess = abs((sortTruncI(round(m/2)) - countOffset)/r);
                
-%           % VALUES
+%    direct check (without mle
 %         vv = 10:0.1:60;
-% 
 %         dat=  arrayfun(@(x) logL(sortTruncI,x),vv);
 %         figure,plot(vv,dat)
 %         
@@ -279,9 +259,11 @@ function [lambdaBg,intThreshBg ] = ...
         catch
         end
 
+        diffLambdas = abs((lambdaBg - lambdaPrev)/lambdaPrev);
+        lambdaPrev = lambdaBg;
         % 
         % Calculate p-values. Anything above mean+6STD from the dist automatically assumed to be   outliers      
-        [pVals, pdfUnique, cdfsUnique, intUnique] = p_values_emccd_sorted(sortTruncI,lambdaBg,gain, adFactor, countOffset, roNoise);        
+        [pVals, pdfUnique, cdfsUnique, intUnique] = p_values_emccd_sorted(sortI,lambdaBg, gain, adFactor, countOffset, roNoise);        
         pValsFlipped = fliplr(pVals);
 
 % %         
@@ -297,7 +279,7 @@ function [lambdaBg,intThreshBg ] = ...
 %         plot(intUnique,cdfsUnique)
 
         % Find outliers https://projecteuclid.org/journals/annals-of-statistics/volume-31/issue-6/The-positive-false-discovery-rate--a-Bayesian-interpretation-and/10.1214/aos/1074290335.full
-        threshold = ((1:m)./(S)).*qStar; % m-number of remaining pixels 
+        threshold = ((1:S)./(S)).*qStar; % m-number of remaining pixels 
 %                 threshold = ((1:m)./(S)).*qStar; % m-number of remaining pixels 
 
         outliers = find(pValsFlipped < threshold,1,'last');
@@ -308,12 +290,28 @@ function [lambdaBg,intThreshBg ] = ...
             hasOutliers = 0;
         end
 %         outliers
+        structRes.nOutliers(runs+1) =  nOutliers;
+        structRes.lambdaBg(runs+1) =  lambdaBg;
+%                 structRes.lambdaBg(runs+1) =  lambdaBg;
+
     end
     idxBgEstimation = m;
     intThreshBg = sortI(idxBgEstimation);
-    intThreshBg = round(intThreshBg) - 1; 
+    intThreshBg = round(intThreshBg) - 1;  % why -1?
+%     
+%    f= figure,
+%     tiledlayout(1,2)
+%     nexttile 
+%     hold on
+%     plot(structRes.nOutliers/S)
+%     title('a) Fraction of outliers','Interpreter','latex')
+%     xlabel('Number of iterations')
+%     nexttile 
+%     plot(structRes.lambdaBg)
+%     title('$\hat \lambda_{bg}$','Interpreter','latex')
+%        print('FigS7.eps','-depsc','-r300')
 
-%    
+% %    
 %     [~, ~, cdfEnd, ~] = p_values_emccd_sorted(max(sortTruncI)+1,lambdaBg,gain, adFactor, countOffset, roNoise);        
 %     figure,histogram(sortTruncI,'normalization','pdf')
 %     hold on
@@ -510,7 +508,7 @@ function cdf = trapezoidal_cdf(y,dt,t,cf,ex)
 end
 
 
-function [pVals,pdfUnique,cdfsUnique,intUnique] = p_values_emccd_sorted(sortedInt,lambda,gain, adFactor, countOffset, roNoise)
+function [pVals,pdfUnique,cdfsUnique,intUnique] = p_values_emccd_sorted(sortedInt, lambda, gain, adFactor, countOffset, roNoise)
 
     %
     % Calculates p-values using the EMCCD distribution
@@ -543,33 +541,31 @@ function [pVals,pdfUnique,cdfsUnique,intUnique] = p_values_emccd_sorted(sortedIn
     L = EX-numstds*STD; % mean - 6 std
     U = EX+numstds*STD;
 
-    
-    
    % Turn into a row vector
     sortedInt = sortedInt(:);  
     
-    
     % Find all unique intensity values
-    diffI = diff(sortedInt);
-    idx = find(diffI > 0) + 1;
-    idx = [1 ; idx]; % indices at there are (the first occurence) 
-                     % of unique intensity values 
-                     % (intensities need to be sorted).
-    nVals = length(idx);
+   [intUnique,idx]  = unique(sortedInt);
+   
+   % take only those smaller than integration range
+    idx = idx(intUnique <= floor(U));
+    intUnique = intUnique(intUnique <= floor(U));
     
+    nVals = length(idx);
+
     % Evaluate the CDF only at the unique intensities 
-    intUnique = sortedInt(idx);
+
     [pdfUnique,cdfsUnique] = pdf_cdf_emccd(intUnique',lambda,gain, adFactor, countOffset, roNoise,L,U);
-    [~,cdfsEnd] = pdf_cdf_emccd(min(U,max(intUnique)+1),lambda,gain, adFactor, countOffset, roNoise,L,U);
+%     [~, cdfsEnd] = pdf_cdf_emccd(min(U,max(intUnique)+1),lambda,gain, adFactor, countOffset, roNoise,L,U);
 %     cdfsUnique = cdfsUnique./cdfsEnd;
 %     pdfUnique = pdfUnique./cdfsEnd;
 
     % remove ones out of range
     cdfsUnique = min(cdfsUnique,1);
     cdfsUnique = max(cdfsUnique,0);
-
-    cdfsUnique(intUnique>floor(U)) = nan;
-    pdfUnique(intUnique>floor(U)) = nan;
+% 
+%     cdfsUnique(intUnique>floor(U)) = nan; % should not be the case
+%     pdfUnique(intUnique>floor(U)) = nan;
 
 %     [~ , cdfsUnique] = pdf_cdf_emccd(intUnique,lambda,chipPars,N);
 

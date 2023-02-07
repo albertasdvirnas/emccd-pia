@@ -67,9 +67,10 @@ mred = cell(1,length(gain));
 chipPars= [];
 chipPars.inid = [];
 N = 1000; % over how many points
-Ntrials = 2500; % number of trials (for estimating confidence). make sure 
 
 for i=1:length(gain)
+    Ntrials = 2500; % number of trials (for estimating confidence) /max Ntrials
+    
     % first calculate analog to digital factor f
     mVec = gain{i}.means(:); % means
     varVec = gain{i}.vars(:);
@@ -123,6 +124,42 @@ plot_histograms_calibration(chipPars,varcalc)
 print(outFig,'-depsc','-r300')
 
 
+% chipPars to latex table
+offset_fun = @(f,g,b1,b2) f.*(b1-b2)./(2*g-1);
+% function for sigma from mean/variance relations
+sigma_fun = @(b1,delta,f) sqrt(b1-1/12+delta./f);
+
+% chipPars.slope is 1/f
+% chipPars.offset b1
+% b2 is  gainPars = cellfun(@(x) x(1),chipPars.gaincoeffs{2});
+% g is  (gainPars./(chipPars.slope(perm)))/2;
+
+deltaQ = zeros(4,3);
+sigmaQ = zeros(4,3);
+gainQ = zeros(4,3);
+for ii=2:4
+% now we get delta: 50
+    gainPars = cellfun(@(x) x(2),chipPars.gaincoeffs{ii});
+    Cgain = cellfun(@(x) x(1),chipPars.gaincoeffs{ii});
+    perm = randperm(length(gainPars));
+    g = (gainPars./(chipPars.slope(perm(1:length(gainPars)))))/2;
+
+    offsetVals = offset_fun(1./chipPars.slope((1:length(gainPars))),g,chipPars.offset(perm(1:length(gainPars))),Cgain);
+
+    deltaQ(ii,:) = quantile(offsetVals,3);
+    sigmaVals = sigma_fun(chipPars.offset(perm(1:length(gainPars))),offsetVals,1./chipPars.slope(perm(1:length(gainPars))));
+    sigmaQ(ii,:) = quantile(sigmaVals,3);
+    gainQ(ii,:) = quantile(g,3);
+
+end
+
+aduQ = quantile(1./chipPars.slope,3);
+
+chipPars.gainQ = gainQ;
+chipPars.sigmaQ = sigmaQ;
+chipPars.aduQ = aduQ;
+chipPars.deltaQ = deltaQ;
+
 % 
 % % fprintf('Offset with no gain: %.2f.\n',noGainCoeffs(1));
 % figure(1)
@@ -151,50 +188,7 @@ fprintf('Estimated count offset at 300: %.2f, std %.3f.\n',mean(chipPars.countOf
 fprintf('Estimated readout noise at  50: %.2f, std %.3f.\n',mean(chipPars.roNoise{2}),std(chipPars.roNoise{2}));
 fprintf('Estimated readout noise at 100: %.2f, std %.3f.\n',mean(chipPars.roNoise{3}),std(chipPars.roNoise{3}));
 fprintf('Estimated readout noise at 300: %.2f, std %.3f.\n',mean(chipPars.roNoise{4}),std(chipPars.roNoise{4}));
-% 
-% %fprintf('Offset with 100 gain: %.2f.\n',gainCoeffs(1));
-% hold on
-% % varsCalc = mPad * noGainCoeffs;
-% plot( chipPars.inid.mVecTemp{1},varcalc{1}{1},'--','LineWidth',1,'Color','black')
-% 
-% figure(2)
-% clf
-% scatter(  chipPars.inid.mVecTemp{2}, chipPars.inid.varVecTemp{2})
-% hold on
-% scatter(  chipPars.inid.mVecTemp{3}, chipPars.inid.varVecTemp{3})
-% scatter(  chipPars.inid.mVecTemp{4}, chipPars.inid.varVecTemp{4})
-% 
-% plot( chipPars.inid.mVecTemp{2},varcalc{2}{1},'--','LineWidth',1,'Color','black')
-% plot( chipPars.inid.mVecTemp{3},varcalc{3}{1},'--','LineWidth',1,'Color','black')
-% plot( chipPars.inid.mVecTemp{4},varcalc{4}{1},'--','LineWidth',1,'Color','black')
-% 
-% legend({'Gain 50','Gain 100','Gain 300','Linear fits'},'Interpreter','latex')
-% % print gain 50 and 300 values too
-% hold off
-% xlabel('Mean image count','Interpreter','latex','Fontsize',15)
-% ylabel('Variance','Interpreter','latex','Fontsize',15)
-% set(gca,'Fontsize',15)
-% %ylim([0 400])
-% %xlim([0 160])
-% axes('Position',[0.2 0.6 0.25 0.25])
-% box on
-% scatter(  chipPars.inid.mVecTemp{1}, chipPars.inid.varVecTemp{1})
-% hold on
-% plot( chipPars.inid.mVecTemp{1},varcalc{1}{1},'--','LineWidth',1,'Color','black')
-% hold off
-% %xlim([0 500])
-% %ylim([0 30])
-% %xlabel('Mean image count','Interpreter','latex','FontSize',12)
-% %ylabel('Variance','Interpreter','latex','FontSize',12)
-% title('Gain 0 moments','Interpreter','latex')
-% fig=gcf;
-% fig.PaperUnits = 'inches';
-% fig.PaperPosition = [0 0 5 3.6];
-% 
-%fprintf('Estimated count offset: %.2f.\n',chipPars.countOffset);
-%chipPars.roNoise1 = sqrt((noGainCoeffs(1)+chipPars.countOffset/chipPars.adFactor)*chipPars.adFactor^2);
-%chipPars.roNoise2 = sqrt((gainCoeffs(1)+2*chipPars.gain*chipPars.countOffset/chipPars.adFactor)*chipPars.adFactor^2);
-%fprintf('Estimated readout noise: %.2f e-\n',chipPars.roNoise1);
+
 end
 
 function [chipPars,varcalc,mred ] = calc_chip_params(i,j,varVecRed,mVecRed,chipPars,varcalc,mred  )
@@ -254,8 +248,9 @@ plot( chipPars.inid.mVecTemp{4},varcalc{4}{1},'--','LineWidth',1,'Color','black'
 
 % print gain 50 and 300 values too
 hold off
-xlabel('Mean image count','Interpreter','latex','Fontsize',15)
-ylabel('Variance','Interpreter','latex','Fontsize',15)
+xlabel('Mean image count','Interpreter','latex')
+ylabel('Variance','Interpreter','latex')
+title('a)','Interpreter','latex')
 % set(gca,'Fontsize',15)
 %ylim([0 400])
 %xlim([0 160])
@@ -270,7 +265,7 @@ hold off
 %ylim([0 30])
 %xlabel('Mean image count','Interpreter','latex','FontSize',12)
 %ylabel('Variance','Interpreter','latex','FontSize',12)
-title('Gain 0','Interpreter','latex')
+title('b) Gain 0','Interpreter','latex')
 lgnd = legend([p1 p2 p3 p4 p5], {'Gain 0', 'Gain 50','Gain 100','Gain 300','Linear fits'},'Interpreter','latex');
 set(lgnd,'color','none');
 lgnd.Layout.Tile = 'east';
@@ -291,29 +286,30 @@ nexttile
 % scatter(  chipPars.inid.mVecTemp{1}, chipPars.inid.varVecTemp{1})
 hold on
 
-[counts1,pos] = histcounts(chipPars.gain{2},'Normalization','pdf');
+[counts1,pos] = histcounts(chipPars.gain{2},'Normalization','count');
 plot((pos(2:end)+pos(1:end-1))/2,counts1,'-')
-[counts2,pos] = histcounts(chipPars.gain{3},'Normalization','pdf');
+[counts2,pos] = histcounts(chipPars.gain{3},'Normalization','count');
 plot((pos(2:end)+pos(1:end-1))/2,counts2,'-')
-[counts3,pos] = histcounts(chipPars.gain{4},'Normalization','pdf');
+[counts3,pos] = histcounts(chipPars.gain{4},'Normalization','count');
 plot((pos(2:end)+pos(1:end-1))/2,counts3,'-')
 ylim([0 max([counts1 counts2 counts3])])
 
 % legend({'Gain 50','Gain 100','Gain 300'},'Interpreter','latex')
 % print gain 50 and 300 values too
 hold off
-xlabel('Estimated gain','Interpreter','latex','Fontsize',15)
-ylabel('Histogram counts','Interpreter','latex','Fontsize',15)
+xlabel('Estimated gain','Interpreter','latex')
+ylabel('Histogram counts','Interpreter','latex')
+title('c)','Interpreter','latex')
 % set(gca,'Fontsize',15)
 % xlim([0 160])
 % axes('Position',[0.2 0.6 0.25 0.25])
 nexttile
 box on
-[counts,pos] = histcounts(chipPars.slope,'Normalization','pdf');
+[counts,pos] = histcounts(chipPars.slope,'Normalization','count');
 plot((pos(2:end)+pos(1:end-1))/2,counts,'black-')
 
 hold off
-title('1/ADU factor','Interpreter','latex')
+title('d) 1/ADU factor','Interpreter','latex')
 
 %%
 % nexttile

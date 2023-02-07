@@ -52,11 +52,15 @@ filenames = simulate_random_beads_full(100,20,100,1/1000,SNRVals, 1, 'synthSingl
 
 outFig3 = 'output\Fig3.eps';
 chipParsCur = struct();
-chipParsCur.gain  = mean(chipParsS.gain{3});
-chipParsCur.countOffset  = mean(chipParsS.countOffset{3});
-chipParsCur.roNoise  = mean(chipParsS.roNoise{3});
-chipParsCur.adFactor  = mean(chipParsS.adFactor);
-
+chipParsCur.gain = mean(chipParsS.gainQ(3,2)); % based on gain in the image.. 50 100 300..
+chipParsCur.adFactor = mean(chipParsS.aduQ(2));
+chipParsCur.countOffset = mean(chipParsS.deltaQ(3,2));
+chipParsCur.roNoise = mean(chipParsS.sigmaQ(3,2));
+% chipParsCur.gain  = mean(chipParsS.gain{3});
+% chipParsCur.countOffset  = mean(chipParsS.countOffset{3});
+% chipParsCur.roNoise  = mean(chipParsS.roNoise{3});
+% chipParsCur.adFactor  = mean(chipParsS.adFactor);
+% 
 fig3_probabilitstic_segmentation(filenames{1}{1}(1:end),SNRVals,chipParsCur,outFig3)
 
 % fig3_probabilitstic_segmentation(filenames{1}{1}([1 2]),SNRVals,chipParsCur,outFig3)
@@ -65,19 +69,24 @@ fig3_probabilitstic_segmentation(filenames{1}{1}(1:end),SNRVals,chipParsCur,outF
 
 % for the beads
 imagefiles = {'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp100_013.tif', 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 lungcancercells\DAPI\FOV1_DAPI\20x_gain300_lamp100_001.tif'};
-imagefiles = {'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp100_013.tif',...
+imagefiles = {'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp50_018.tif',...
     'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 lungcancercells\DAPI\FOV2_DAPI_gainVariation\20x_gain100_lamp100_004.tif'};
+% imagefiles = {'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp100_013.tif',...
+%     'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 lungcancercells\DAPI\FOV2_DAPI_gainVariation\20x_gain100_lamp100_004.tif'};
 
 
-chipParsCur1.gain  = mean(chipPars.gain{3});
-chipParsCur1.countOffset  = mean(chipPars.countOffset{3});
-chipParsCur1.roNoise  = mean(chipPars.roNoise{3});
-chipParsCur1.adFactor  = mean(chipPars.adFactor);
+chipParsCur1.gain = mean(chipPars.gainQ(3,2)); % based on gain in the image.. 50 100 300..
+chipParsCur1.adFactor = mean(chipPars.aduQ(2));
+chipParsCur1.countOffset = mean(chipPars.deltaQ(3,2));
+chipParsCur1.roNoise = mean(chipPars.sigmaQ(3,2));
+    
+% chipParsCur1.gain = mean(chipPars.gainQ(4,2)); % based on gain in the image.. 50 100 300..
+% chipParsCur1.adFactor = mean(chipPars.aduQ(2));
+% chipParsCur1.countOffset = mean(chipPars.deltaQ(4,2));
+% chipParsCur1.roNoise = mean(chipPars.sigmaQ(4,2));
 
-chipParsCur2.gain  = mean(chipPars.gain{4});
-chipParsCur2.countOffset  = mean(chipPars.countOffset{4});
-chipParsCur2.roNoise  = mean(chipPars.roNoise{4});
-chipParsCur2.adFactor  = mean(chipPars.adFactor);
+
+
 chipParsFig4 = {chipParsCur1,chipParsCur1}; % the two experiments will have slightly varying parameters because of different Gain setting
 
 outFig4 = { fullfile(figFold,'Fig4a.eps'),fullfile(figFold,'FigS4a.eps');fullfile(figFold,'Fig4b.eps'),fullfile(figFold,'FigS4b.eps')};

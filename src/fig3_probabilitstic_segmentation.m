@@ -6,8 +6,8 @@ function [] = fig3_probabilitstic_segmentation(imageNames, SNRVals, chipPars, ou
 %     end
     
     % input parameter values
-     qStar = 0.2; % parameter which controls the false detection rate (FDR)
-     pValThreshBinarization = 1E-1;
+     qStar = 0.5; % parameter which controls the false detection rate (FDR)
+     pValThreshBinarization = 1E-2;
      
      
   % p-value threshold using the background distribution

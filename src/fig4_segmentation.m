@@ -11,7 +11,7 @@ end
     axtile{1}= nexttile(t);
     axtile{2} = nexttile(t);
 % Input PARAMETERS 
-binWidthPerSigmaBg = 0.3;    % bin width / sigma for background 
+% binWidthPerSigmaBg = 0.3;    % bin width / sigma for background 
 qStar = 0.5;                 % parameter which controls the 
                              % false detection rate (FDR)
 pValThreshBinarization = 1E-2;
@@ -20,7 +20,7 @@ allowedGapLength = 1;        % allowed gap length. In sorted list of
                              % starting at region size = 1, we allow for the 
                              % regions to be said to belong to 
                              % the "noise regions" cluster. 
-    images.runNo = 1;
+images.runNo = 1;
 
 %
 % Script for generating a segmentated image (white regions = signal, 
@@ -29,7 +29,7 @@ allowedGapLength = 1;        % allowed gap length. In sorted list of
     % Hard-coded variables
 %     fontSizePlot = 12;         % fontsizes in plots
 %     lineWidthPlot = 2;         % linewidth in plots
-    lineWidthBoundaries = 1;   % in images, this gives the 
+lineWidthBoundaries = 1;   % in images, this gives the 
                                % size of the overlaid boundaries
 %     nMedians = 4;              % upper threshold (in terms of number of medians)
                                % when setting the constrast
@@ -65,46 +65,22 @@ for i=1:length(imageFilenames)
     im = imread(imageFilename); % Specify target image
     images.imAverage = double(im);
     images.registeredIm{1} = double(im);
-%     images.imageName = 'BeadsHighConc';
     images.imageNumber = i;
 
+    titles = {'a)','b)'};
 
-
-%% WHYY?
-% Crop out a movie in the center of the image
-% cropLength = 150
-% imageTemp = images.imAverage ;
-% [nRows , nCols ] = size(imageTemp);
-% startRow = round(nRows/2 - cropLength/2) + 0;
-% endRow = startRow + cropLength - 1;
-% startCol = round(nCols/2 - cropLength/2) + 0 ;
-% endCol = startCol + cropLength - 1;
-% images.imAverage = imageTemp(startRow:endRow,startCol:endCol);
-
-
-
-% Add path to relevant folders
-
-% addpath('../../photophys_image_analysis/util/binarization_segmentation')
-% addpath('../../photophys_image_analysis/util/emccd_distribution')
-% addpath('../../photophys_image_analysis/util/read_write')
-
-
-
-% Perform image segmentration
-t = cputime;  
+    % Perform image segmentration
+    t = cputime;  
 
     chipPars = chipParsCur{i};
 
     [lambdaBg,intThreshBg] = fig2_calibration(chipPars,outFig{i,2},images,qStar,1);
 %
-
     gain = chipPars.gain;
     adFactor = chipPars.adFactor;
     roNoise = chipPars.roNoise;
     offset = chipPars.countOffset;
 
-        
         
      disp('Binarizing image');
         [binarizedImage , intThreshBlackWhite ] = binarize_image_pval_thresh2(...
@@ -113,102 +89,50 @@ t = cputime;
   
     % Find regions in the binarized image
     disp('Finding regions in the binarized image')
-    [labelIm, isRegBlack ] = ...
-             find_regions_in_binarized_image( binarizedImage );
-    segOutput.labelIm = labelIm;
-    segOutput.isRegBlack = isRegBlack;
-    disp(' ');       
-          
-   
-    % Determine region size thresholds
-     disp('Determining region size thresholds')
-    regSizes = calc_region_sizes(labelIm);    
-    [regSizeThreshBlack , regSizeThreshWhite ] =  ...
-        calc_region_size_threshold_using_clustering( regSizes , isRegBlack , allowedGapLength);
-     disp(['Region size threshold for black regions  = ',num2str(regSizeThreshBlack)]);
+
+    % w_white
+    [bIm, labelIm] = bwboundaries(binarizedImage, 'noholes','CONN',4);
+    [regSizeThreshWhite, regSizesImg] = find_reg_thresh(bIm,allowedGapLength);
+    
+    % w_black
+    [bBg, labelBg] = bwboundaries(1-binarizedImage, 'noholes','CONN',4);
+    [regSizeThreshBg, regSizesBg] = find_reg_thresh(bBg,allowedGapLength);
+
+    disp(['Region size threshold for black regions  = ',num2str(regSizeThreshBg)]);
     disp(['Region size threshold for white regions  = ',num2str(regSizeThreshWhite)]);  
-    segOutput.regSizeThreshBlack = regSizeThreshBlack;
+    segOutput.regSizeThreshBlack = regSizeThreshBg;
     segOutput.regSizeThreshWhite = regSizeThreshWhite;
     disp(' ')
     
-         
-    % Generate the final segmentation by removing small black and white
-    % regions
-    disp('Generating the final segmented image')
-    [mergedLabelIm , ~ ] = ...
-    generate_final_segmented_regions(labelIm, isRegBlack, regSizeThreshBlack , regSizeThreshWhite );
-    fprintf('Found %i merged regions .\n',max(mergedLabelIm(:)))
-    segOutput.mergedLabelIm = mergedLabelIm;
-    disp(' ')
+    % filter out all regions which has size smaller than
+    bIm = bIm(regSizesImg>regSizeThreshWhite);
+    bBg = bBg(regSizesBg>regSizeThreshBg);
+    labeLocs = find(regSizesImg>regSizeThreshWhite);
+    regSizesImg = regSizesImg(regSizesImg>regSizeThreshWhite);
     
-%     [L,U,EX,STD] = calc_bounds(lambdaBg,gain,adFactor,offset,roNoise);
-%                 [~,cdfTemp] = pdf_cdf_from_characteristic_fun(L:U,lambdaBg,gain,adFactor, regSizes(regIdx)*offset,sqrt(regSizes(regIdx))*roNoise);
-
-%     % that give intensities to calculate over
-%     intensities = ceil(L):floor(U);
-%     [pdf,cdf] = pdf_cdf_from_characteristic_fun(intensities,lambdaBg,gain,adFactor,offset,roNoise);
-% 
-%     % lets say we have 10 images
-%     M = 10;
-%         [L,U,EX,STD] = calc_bounds(lambdaBg*M,gain,adFactor,M*offset,sqrt(M)*roNoise);
-% 
-%     intensities = ceil(L):floor(U); % to be more accurate, 
-%     
-%     [pdf,cdf] = pdf_cdf_from_characteristic_fun(intensities,M*lambdaBg,gain,adFactor,M*offset,sqrt(M)*roNoise);
-
-    % cdf, in this case do not need to be truncated
-    
-    
+  
     % Calculate p-values for final regions using summed intensities
-    disp('Calculating p-values for the final segmented regions')     
-    nReg = max(mergedLabelIm(:));  % number of regions
-    regSizes = calc_region_sizes( mergedLabelIm  ); % number pixels in each region
-    summedInt = calc_region_summed_intensities( images.imAverage , mergedLabelIm  );
-                        % summed intensities for each region.
-    cdfSummedInt = zeros(1,nReg); 
-    for regIdx = 1:nReg
-        % redo using new pdf cdf emcc
-        M = regSizes(regIdx);
-        [L,U,EX,STD] = calc_bounds(lambdaBg*M,gain,adFactor, M*offset,sqrt(M)*roNoise);
-%         intensities = ceil(L):floor(U); % to be more accurate, 
-
-        [~,cdfTemp] = pdf_cdf_from_characteristic_fun( summedInt(regIdx), M*lambdaBg,gain,adFactor, M*offset,sqrt(M)*roNoise);
-%             [~,cdfTemp] = pdf_cdf_from_characteristic_fun( summedInt(regIdx), regSizes(regIdx)*lambdaBg,gain,adFactor, regSizes(regIdx)*offset,sqrt(regSizes(regIdx))*roNoise);
-
-%          [ ~ , cdfTemp ] = pdf_cdf_emccd_summed_intensities( ...
-%            summedInt(regIdx), regSizes(regIdx), lambdaBg , chipPars , N );   
+    disp('Calculating p-values for the final segmented regions') 
+    
+    nReg = length(bIm);
+    summedInt = zeros(1,nReg);
+    cdfSummedInt =  zeros(1,nReg);
+    for regIdx=1:nReg
+        pixelvals = images.imAverage(labelIm==labeLocs(regIdx));
+        summedInt(regIdx) = sum(pixelvals);
+%         summedInt(regIdx) = sum(arrayfun(@(x) images.imAverage(bIm{regIdx}(x,1),bIm{regIdx}(x,2)),1:length(bIm{regIdx})));
+%         M = regSizesImg(regIdx);
+        M = length(pixelvals);
+        
+        [~,cdfTemp] = pdf_cdf_from_characteristic_fun( summedInt(regIdx), M*lambdaBg,gain,adFactor, M*offset,sqrt(M)*roNoise); 
         cdfSummedInt(regIdx) = min(1,cdfTemp);
-
     end
     pValsMerged = 1 - cdfSummedInt;
-    segOutput.pValsMerged= pValsMerged;
-           
-        
-        
-%         
-% segOutput = segmentation_photophys(images,experiment, ...
-%     binWidthPerSigmaBg , qStar , pValThreshBinarization , allowedGapLength);
-% e = cputime - t;
+    segOutput.pValsMerged = pValsMerged;
+    
+    colorValU = 1 - segOutput.pValsMerged;  
+    imageInput = images.imAverage;
 
-
- imageInput = images.imAverage;
- % Choose colors [in the range 0 to 1] for the boundaries
- % based on region probbilities of p-values
- nReg = max(mergedLabelIm(:));  % number of regions 
- if isfield(segOutput,'mergedProbSignal')
-     colorValU = segOutput.mergedProbSignal;
- elseif isfield(segOutput,'pValsMerged')
-     colorValU = 1 - segOutput.pValsMerged;       
- else
-     colorValU = 0.9*ones(1,nReg);
- end
-
-% Trace out the boundaries of all regions
-% if actions.plotUsingBwboundaries 
-%    boundariesCellArray = trace_boundaries_bwboundaries( mergedLabelIm  );
-% else
-   boundariesCellArray = trace_boundaries( mergedLabelIm );
-% end
 
     %% Plot original image with adjusted contrast
 %     figure
@@ -217,22 +141,13 @@ t = cputime;
 %     ax1=nexttile;
  %     imshow(J,'InitialMagnification','fit');
     axes(axtile{i})
-
-   plot_out(images,boundariesCellArray,nReg,colorValU,lineWidthBoundaries)
-%         
-%         clabeltext = text(475,320,'$1- p_-value$','Color','black','Interpreter','latex');
-%         set(clabeltext,'Rotation',-90) 
-       
+%     figure
+   plot_out(images,bIm,nReg,colorValU,lineWidthBoundaries)
+   title(titles{i},'Interpreter','latex')
         
 end
     
-    print(ff,outFig{i,1},'-depsc','-r300')
-
-
-% Plot output
-% plot_segmentation_photophys_result( segOutput, images , experiment , actions)
-
-
+    print(ff,outFig{1,1},'-depsc','-r300')
 
 end
 
@@ -251,41 +166,16 @@ function plot_out(images,boundariesCellArray,nReg,colorValU,lineWidthBoundaries)
 %         ax1.XTick = [];
 %         ax1.YTick = [];
         hold on    
-               
+
         % Plot boundaries contours
         parMap = parula;
          for regIdx = 1:nReg  % loop over regions
              boundariesReg = boundariesCellArray{regIdx};
              colorVal = 1 + floor(colorValU(regIdx)*255); % in the range [1,256]
              lineColor = parMap(colorVal,:);    
-             for boundaryIdx = 1:length(boundariesReg)
-                 contour = boundariesReg{boundaryIdx};
-                 plot(contour(:,2),contour(:,1),'LineWidth',lineWidthBoundaries,'Color',lineColor)
-             end 
-
+                 plot(boundariesReg(:,2),boundariesReg(:,1),'LineWidth',lineWidthBoundaries,'Color',lineColor)
         end   
     
-%         % Plot fround truth positions (if available)
-%         if (~isempty(groundTruthPositions) & actions.showGroundTruthMarkers)
-%             scatter(groundTruthPositions(:,2),groundTruthPositions(:,1),100,'x','MarkerEdgeColor','white')
-%         end 
-%         hold off
-    
-        % Set title
-        %if isfield(images,'imageName')
-        %    strTitle = strcat('Photophysical segmentation, image = ',images.imageName);  
-        %    title(strTitle)
-        %end
-        
-%         % Some axis adjustments etc
-%         ax2 = axes;
-%         linkaxes([ax1,ax2])
-%         ax2.Visible = 'off';
-%         ax2.XTick = [];
-%         ax2.YTick = [];
-%         cb = colorbar('Ticks',[0,.2,0.4,0.6,0.8,1],...
-%              'TickLabels',{0,0.2,0.4,0.6,0.8,1},'Position',[.85 .11 .055 .815]); %.815
-%         set(gca,'ColorScale','log')
-%         cb.Label.String ='1- p';
+
 
 end

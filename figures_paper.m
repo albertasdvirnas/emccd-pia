@@ -48,7 +48,7 @@ chipPars.inputImage = 'data\100x_gain100_lamp50_018.tif';
     SNRVals = [3.00 , 3.50 , 4.00 , 4.50 , ...
                5.00 , 5.50 , 6.00 , 6.50 , 7.00 , 7.50 , 8.00 , 8.50 , ...
                9.00 , 9.50 , 10.00 ];  
-filenames = simulate_random_beads_full(100,20,100,1/1000,SNRVals, 1, 'synthSingleFrame'); % zoom 100x
+filenames = simulate_random_beads_full(100, 20, 100, 1/1000,SNRVals, 1, 'synthSingleFrame'); % zoom 100x
 
 outFig3 = 'output\Fig3.eps';
 chipParsCur = struct();

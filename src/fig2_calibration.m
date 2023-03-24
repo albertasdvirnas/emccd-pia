@@ -782,12 +782,12 @@ axis([0 1 22 24])
 yyaxis right
 colorRight = [0.8500 0.3250 0.0980];
 plot(qStarVec,intThreshBgVec,'-','linewidth',2,'Color',colorRight)
-ylabel('intensity threshold','Color',colorRight)
+ylabel('Image count threshold','Color',colorRight)
 set(gca,'YColor',colorRight,'Fontsize',12)
 
-legend('estimated \lambda_{bg}','estimated intensity threshold','location','southoutside')
+legend('estimated \lambda_{bg}','estimated image count threshold','location','southoutside')
 
-
+% save (for replotting)
 
 
 end

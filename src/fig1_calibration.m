@@ -67,9 +67,9 @@ mred = cell(1,length(gain));
 chipPars= [];
 chipPars.inid = [];
 N = 1000; % over how many points
+Ntrials = 2500; % number of trials (for estimating confidence) /max Ntrials
 
 for i=1:length(gain)
-    Ntrials = 2500; % number of trials (for estimating confidence) /max Ntrials
     
     % first calculate analog to digital factor f
     mVec = gain{i}.means(:); % means
@@ -250,7 +250,7 @@ plot( chipPars.inid.mVecTemp{4},varcalc{4}{1},'--','LineWidth',1,'Color','black'
 hold off
 xlabel('Mean image count','Interpreter','latex')
 ylabel('Variance','Interpreter','latex')
-title('a)','Interpreter','latex')
+title('a) Gain 50,100,300','Interpreter','latex')
 % set(gca,'Fontsize',15)
 %ylim([0 400])
 %xlim([0 160])
@@ -261,6 +261,7 @@ p1 = scatter(  chipPars.inid.mVecTemp{1}, chipPars.inid.varVecTemp{1},'black')
 hold on
 p5 = plot( chipPars.inid.mVecTemp{1},varcalc{1}{1},'--','LineWidth',1,'Color','black')
 hold off
+xlabel('Mean image count','Interpreter','latex')
 %xlim([0 500])
 %ylim([0 30])
 %xlabel('Mean image count','Interpreter','latex','FontSize',12)
@@ -307,9 +308,10 @@ nexttile
 box on
 [counts,pos] = histcounts(chipPars.slope,'Normalization','count');
 plot((pos(2:end)+pos(1:end-1))/2,counts,'black-')
+xlabel('$1/{\rm f}$','Interpreter','latex')
 
 hold off
-title('d) 1/ADU factor','Interpreter','latex')
+title('d) ','Interpreter','latex')
 
 %%
 % nexttile

@@ -548,6 +548,10 @@ function plot_binarization_evaluation_results_beads(outFig3)
     hold on
     y = results.lambdaBgGroundTruth*ones(1,length(snr));
     plot(snr,y,'black--','linewidth',2)
+    ylim([37 41])
+    text(4,37.5,'Ground-truth')
+    text(4,39.5,'Estimated')
+
     hold off
 %     try
 %     axis([snr(1) , snr(end) , results.lambdaBgGroundTruth - 1 , ...
@@ -557,7 +561,7 @@ function plot_binarization_evaluation_results_beads(outFig3)
 %      legend('estimated value','ground truth','Location','northeast','Fontsize',fS)
 %     xlabel('Signal to noise ratio','Interpreter','latex','Fontsize',fS)
     ylabel('\lambda_{bg}','Fontsize',12)
-    title('Poisson parameter','Fontsize',fS)
+    title('a) Poisson parameter','Fontsize',fS)
 %     set(gca,'Fontsize',15)
   
     
@@ -574,7 +578,7 @@ function plot_binarization_evaluation_results_beads(outFig3)
     fig = gcf;
     fig.PaperUnits = 'inches';
 %     fig.PaperPosition = [0 0 4 2.5];
-    title('Pixelbased FDR','Fontsize',fS)
+    title('b) FDR','Fontsize',fS)
 %     set(gca,'Fontsize',15)
 
     % Plot FRR, pixelbased
@@ -591,9 +595,10 @@ function plot_binarization_evaluation_results_beads(outFig3)
     fig = gcf;
     fig.PaperUnits = 'inches';
 %     fig.PaperPosition = [0 0 4 2.5];
-    title('Pixelbased FRR','Fontsize',fS)
+    title('c) FRR','Fontsize',fS)
 %     set(gca,'Fontsize',15)
 %    print('C:\Users\Lenovo\postdoc\PAPERS\emccd-paper\draft\Figs\Fig6.eps','-depsc','-r300')
+    xlabel('SNR','Interpreter','latex','Fontsize',fS)
 
 
     % Plot TMR, pixelbased
@@ -604,17 +609,17 @@ function plot_binarization_evaluation_results_beads(outFig3)
     plot(snr,otsuTmrPixelbased,'--x','linewidth',2);
     plot(snr,tmrEst,'.-','linewidth',2)
     hold off
-    lgnd = legend("Ours","Otsu's method","estimate",'Fontsize',fS)
+    lgnd = legend("EMCCD-PIA","Otsu's method","a priori estimate",'Fontsize',fS)
     lgnd.Layout.Tile = 'north';
-
+    fig = gcf;
+    fig.PaperUnits = 'inches';
     xlabel('SNR','Interpreter','latex','Fontsize',fS)
     xlim([1 10])
     ylabel('TMR','Interpreter','latex','Fontsize',fS)
-    fig = gcf;
-    fig.PaperUnits = 'inches';
+
 %     fig.PaperPosition = [0 0 4 2.5];
-    title('Pixelbased TMR','Fontsize',fS)
-    set(gca,'Fontsize',fS)
+    title('d) TMR','Fontsize',fS)
+%     set(gca,'Fontsize',fS)
   
     print(outFig3,'-depsc','-r300')
 

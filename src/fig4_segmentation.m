@@ -124,7 +124,9 @@ for i=1:length(imageFilenames)
 %         M = regSizesImg(regIdx);
         M = length(pixelvals);
         
-        [~,cdfTemp] = pdf_cdf_from_characteristic_fun( summedInt(regIdx), M*lambdaBg,gain,adFactor, M*offset,sqrt(M)*roNoise); 
+       [~,cdfTemp,~,~] = pdf_cdf_from_characteristic_fun_sum( summedInt(regIdx), lambdaBg,gain,adFactor, offset,roNoise,M); 
+%                 [pdfEmccd,cdfTemp,L,U] = pdf_cdf_from_characteristic_fun( summedInt(regIdx), M*lambdaBg,gain,adFactor, M*offset,sqrt(M)*roNoise); 
+
         cdfSummedInt(regIdx) = min(1,cdfTemp);
     end
     pValsMerged = 1 - cdfSummedInt;

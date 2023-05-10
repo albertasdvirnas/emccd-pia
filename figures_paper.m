@@ -2,13 +2,15 @@
 figFold = 'output';
 
 %% Simulate synthetic / for 0 gain we zoom in and take 100x image
-zoom = 100;
-simulate_random_beads_full(zoom,1,0,1/300); % zoom 100x
-%
-zoom = 20;
+
 gain = [1 12 20 46];
 gainNames = [0 50 100 300];
 particleDensity = 1/300;
+
+zoom = 100;
+simulate_random_beads_full(zoom,gain,gainNames,particleDensity); % zoom 100x
+%
+zoom = 20;
 simulate_random_beads_full(zoom, gain, gainNames, particleDensity); % zoom 20x, particles are 5 times smaller
 
 
@@ -24,31 +26,44 @@ calculate_moments(fullfile(foldRealData,'20x\*.tif'));
 
 %% FigS1.eps - synthetic data.
 no_gain_mat = 'synth100x.mat';
-gain_mat = 'synth20x.mat';
+gain_mat = 'synth100x.mat';
 
 outFig = fullfile(figFold,'FigS0.eps');
-chipParsS = fig1_calibration(no_gain_mat, gain_mat,outFig);
-
-%% FigS2.eps / on synthetic image
-
+[chipParsS,chipParsSAll] = fig1_calibration(no_gain_mat, gain_mat,outFig);
 
 %% Fig1.eps
 no_gain_mat = '100x.mat';
 gain_mat = '20x.mat';
 
 outFig = fullfile(figFold,'Fig1.eps');
-chipPars = fig1_calibration(no_gain_mat, gain_mat,outFig);
+[chipPars,chipParsAll] = fig1_calibration(no_gain_mat, gain_mat,outFig);
 
-%% Fig2.eps
+%% FigS2.eps / on synthetic image
+
+%% Fig2.eps - real experiment
 outFig2 = fullfile(figFold,'Fig2.eps');
-chipPars.inputImage = 'data\100x_gain100_lamp50_018.tif';
-[lambdaBg,intThreshBg] = fig2_calibration(chipPars,outFig2);
+filename = 'data\100x_gain100_lamp50_018.tif';
+% filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp10_022.tif';
+% filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp100_013.tif';
+% filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp100_013.tif';
 
+chipPars.inputImage = filename;
+[image] = Core.load_image(filename);
+alphaStar = 0.1; % FOR control
+chipParsSpec = Core.chippars_specific_gain(chipParsAll,3);
+chipParsSpec.pixelsize = 160;
+chipParsSpec.method = 'FDR';
+% chipParsSpec.method = 'FOR';
+
+% [lambdaBg,intThreshBg,stats] = fig2_calibration(chipPars,outFig2);
+tic
+[lambdaBg, intThreshBg, stats] = emccdpia_estimation(chipParsSpec,outFig2,image,alphaStar,1);
+toc
 %% Fig3.eps
     SNRVals = [3.00 , 3.50 , 4.00 , 4.50 , ...
                5.00 , 5.50 , 6.00 , 6.50 , 7.00 , 7.50 , 8.00 , 8.50 , ...
                9.00 , 9.50 , 10.00 ];  
-filenames = simulate_random_beads_full(100, 20, 100, 1/1000,SNRVals, 1, 'synthSingleFrame'); % zoom 100x
+filenames = simulate_random_beads_full(100, 20, 100, 1/1000,SNRVals, 1, 'synthSingleFrameNew'); % zoom 100x
 
 outFig3 = 'output\Fig3.eps';
 chipParsCur = struct();
@@ -60,11 +75,31 @@ chipParsCur.roNoise = mean(chipParsS.sigmaQ(3,2));
 % chipParsCur.countOffset  = mean(chipParsS.countOffset{3});
 % chipParsCur.roNoise  = mean(chipParsS.roNoise{3});
 % chipParsCur.adFactor  = mean(chipParsS.adFactor);
-% 
-fig3_probabilitstic_segmentation(filenames{1}{1}(1:end),SNRVals,chipParsCur,outFig3)
+%     
+chipParsCur.method = 'FOR';
+chipParsCur.alphaStar = 0.05;
+ [results,stats] = emccdpia_thresholding(filenames{1}{1}(5),SNRVals,chipParsCur,outFig3,chipParsCur.alphaStar,1);
+
+chipParsCur.method = 'FDR';
+chipParsCur.alphaStar = 0.9;
+emccdpia_thresholding(filenames{1}{1}(1:end),SNRVals,chipParsCur,outFig3,chipParsCur.alphaStar,1);
+
+
+chipParsCur.gain  = 20;
+chipParsCur.countOffset  = 27;
+chipParsCur.roNoise  = 1.44;
+chipParsCur.adFactor  = 36;
+%  [results,stats] = emccdpia_thresholding(filenames{1}{1}(1:end),SNRVals,chipParsCur,outFig3,chipParsCur.alphaStar,1);
+ [results,stats] = emccdpia_thresholding(filenames{1}{1}(5),SNRVals,chipParsCur,outFig3,chipParsCur.alphaStar,1);
+
+% fig3_probabilitstic_segmentation(filenames{1}{1}(1),SNRVals,chipParsCur,outFig3)
 
 % fig3_probabilitstic_segmentation(filenames{1}{1}([1 2]),SNRVals,chipParsCur,outFig3)
 % [lambdaBg,intThreshBg] = fig2_calibration(chipPars,outFig2);
+
+%% figS3.eps 
+%  FOR and FDR as a function of q^*
+
 %% Fig4.eps
 
 % for the beads
@@ -95,3 +130,4 @@ outFig4 = { fullfile(figFold,'Fig4a.eps'),fullfile(figFold,'FigS4a.eps');fullfil
 
 fig4_segmentation(imagefiles,chipParsFig4,outFig4);
 % fig4_segmentation(chipPars,'beads_low_conc_100x_gain100_lamp100_013.tif')
+

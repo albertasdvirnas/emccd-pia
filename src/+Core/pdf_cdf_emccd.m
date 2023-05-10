@@ -1,4 +1,4 @@
-function [pdfEmccd,cdfEmccd,L,U] = pdf_cdf_from_characteristic_fun(intensities,lambda,gain,adFactor,offset,roNoise,L,U)
+function [pdfEmccd,cdfEmccd] = pdf_cdf_emccd(intensities,lambda,gain,adFactor,offset,roNoise,L,U)
 
     % Generates EMCCD probability density function (PDF) and 
     % cumulative distribution functin (CDF) by numerical inversion 
@@ -39,13 +39,7 @@ function [pdfEmccd,cdfEmccd,L,U] = pdf_cdf_from_characteristic_fun(intensities,l
       
 %     % Analytic expressions for the mean and variance
     EX = lambda*gain/adFactor+offset; 
-
-if nargin < 7
-    STD = sqrt(roNoise^2 + 2*lambda*r^2 + 1/12);  
-    numstds = 6;
-    L = EX-numstds*STD; % mean - 6 std
-    U = EX+numstds*STD;
-end
+%     STD = sqrt(roNoise^2 + 2*lambda*r^2 + 1/12);  
 %     
 %     % Analytic expression for the characteristic function 
 %     % for the EMCCD distribution
@@ -53,7 +47,9 @@ end
 % 
 %     %
 %    % limits where pdf is nonzero
-
+%     numstds = 6;
+%     L = EX-numstds*STD; % mean - 6 std
+%     U = EX+numstds*STD;
 %     U = min(max(intensities),U); % limit to U for truncated case
 
 
@@ -76,11 +72,8 @@ end
     
     % calculate main integral
     pdfEmccd = trapezoidal_pdf(y,dt,t,cf);
-
     cdfEmccd = cumsum(pdfEmccd);
-%     cdfEmccd = diff(trapezoidal_pdf([y(1)-1 y],dt,t,cf));
 
-    % this would be continous case
 %     cdfEmccd = trapezoidal_cdf(y,dt,t,cf,EX);
 
    
@@ -114,3 +107,4 @@ function cdf = trapezoidal_cdf(y,dt,t,cf,ex)
     w(end)=1/2; % last coef is 1/2
     cdf = 1/2 - dt/pi*(1/2*(ex-y') +cos(t*y)'*(imag(cf./t).*w)-sin(t*y)'*(real(cf./t).*w));
 end
+

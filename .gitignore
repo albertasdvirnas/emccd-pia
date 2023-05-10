@@ -4,3 +4,4 @@ synthSingleFrame
 data/*.tif
 *.eps
 output/
+data/

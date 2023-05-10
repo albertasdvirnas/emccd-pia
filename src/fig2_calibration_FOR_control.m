@@ -1,6 +1,6 @@
 % fig2_calibration(chipPars)
 
-function [lambdaBg,intThreshBg,structRes] = fig2_calibration(chipPars,outFig,images,qStar,showfig)
+function [lambdaBg,intThreshBg,structRes] = fig2_calibration_FOR_control(chipPars,outFig,images,qStar,showfig)
 
 %
 % Plot of the estimated lambda_bg using a beads image
@@ -100,7 +100,7 @@ disp('Generating histogram over pixel intensities')
 % binEdges  =  generate_binedges(images.imAverage, ...
 %                   binWidthPerSigmaBg, lambdaBg,gain, adFactor, countOffset, roNoise );
 
-binEdges = [ceil(L):floor(U)]-0.5; 
+binEdges = ceil(L):floor(U); 
 histAll = histcounts(images.imAverage(:),binEdges);    
 disp(' ')   
 % hold on
@@ -124,7 +124,7 @@ nPixels = numel(images.imAverage(:));
 % Estimate the number of bg pixels
 idxThreshTrueBg = length(find(images.imAverage(:) <= intThreshBg));   
 %
-[~,cdfAtThreshTrueBg] = pdf_cdf_emccd(intThreshBg+0.5,lambdaBg,gain,adFactor,countOffset,roNoise,L,U);  
+[~,cdfAtThreshTrueBg] = pdf_cdf_emccd(intThreshBg+1.5,lambdaBg,gain,adFactor,countOffset,roNoise,L,U);  
 %
 nBg = min(idxThreshTrueBg/cdfAtThreshTrueBg, nPixels); 
 % Estimate the expected number of bin counts 
@@ -165,7 +165,6 @@ end
 
 function [lambdaBg,intThreshBg,structRes ] = ...
                     estimate_bg_params(intensities,gain, adFactor, countOffset, roNoise,qStar)
-
     %
     % Determines lambda_bg (Poisson parameter for background),
     % and the intensity cut-off below which essentially all pixels
@@ -189,17 +188,7 @@ function [lambdaBg,intThreshBg,structRes ] = ...
     % intThreshBg = intensity threshold (integer) below which 
     %               most pixels are background
     %
-    % Dependencies: emccd_distribution/log_likelihood_trunc_dist.m
-    %               emccd_distribution/p_values_emccd.m
-    %
-    %
 
-    % Hard-coded variables
-    % number of points. no need, we integrate up to pi because of
-    % discreteness
-%     N = 2^8;     % number of integration points when calculating 
-                 % PDF through  numerical inverse Fourier-transform
-                 % of the characteristic function 
     opt = statset('MaxIter',200,'MaxFunEvals',400,'FunValCheck','on');
                 % here one can add input to the 
                 % maximum-likelihood estimation (MLE) routine.
@@ -207,22 +196,8 @@ function [lambdaBg,intThreshBg,structRes ] = ...
                 % to see what fields are accessible. 
                 
     % Extract chip parameters
-
-    
     r = gain/adFactor;
     
-    %% Pre-process. If data has two or more wide peaks, algo would fail unless they are well separated.
-    
-%     intensityVec = intensities(:);        
-% 
-%     [a,b] = histcounts(intensities);
-%     [pk,pos] = findpeaks(imgaussfilt(a,3));
-%     if length(pk) > 1
-%         intensityVec = intensities(intensities<b(pos(2)));
-%     else
-%         intensityVec = intensities(:);        
-%     end
-
     % Sort data
     intensityVec = intensities(:);
     sortI = sort(intensities);
@@ -230,85 +205,44 @@ function [lambdaBg,intThreshBg,structRes ] = ...
     
     m = S;
     nOutliers = round(m/2);
-    
-
-    
-
+    m = m - nOutliers;
+    sortTruncI = sortI(1:m);
     % Specify likelihood function
     logL = @(data,lambda) log_likelihood_trunc_dist(data , lambda , ...
                        gain, adFactor, countOffset, roNoise); 
                          
      % Recursively reduce the data set until there are no "outliers" left.
     hasOutliers = 1;
-%     nOutliers = 0;
     runs = 0;
-    diffLambdas = Inf;
-    lambdaPrev = 0;
     
     structRes = [];
-    while hasOutliers && runs < 10 && diffLambdas > 0.00001
+    while hasOutliers %&& runs < 10 && diffLambdas > 0.00001
         runs = runs + 1;
-        % Remove outliers
-        m = S - nOutliers;
-        sortTruncI = sortI(1:m);
         % Fit lambda
         lamGuess = abs((sortTruncI(round(m/2)) - countOffset)/r);
         structRes.lamGuess(runs) = lamGuess;
-%    direct check (without mle
-%         vv = 10:0.1:60;
-%         dat=  arrayfun(@(x) logL(sortTruncI,x),vv);
-%         figure,plot(vv,dat)
-%         
-        try 
-            [lambdaBg,pci] = mle(sortTruncI,'logpdf',logL,'start',lamGuess,'lowerBound',0,'Options',opt);
-                % in the first iteration (when there are outliers) 
-                % the MLE routine may not converge too well and
-                % hence will pass on a warning. Here we suppress this warning.
-        catch
-        end
 
-        diffLambdas = abs((lambdaBg - lambdaPrev)/lambdaPrev);
-        lambdaPrev = lambdaBg;
+        [lambdaBg,pci] = mle(sortTruncI,'logpdf',logL,'start',lamGuess,'lowerBound',0,'Options',opt);
         % 
-        % Calculate p-values. Anything above mean+6STD from the dist automatically assumed to be   outliers      
-        [pVals, pdfUnique, cdfsUnique, intUnique] = p_values_emccd_sorted(sortI,lambdaBg, gain, adFactor, countOffset, roNoise);        
-%         [pVals, pdfUnique, cdfsUnique, intUnique] = p_values_emccd_continuous(sortI,lambdaBg, gain, adFactor, countOffset, roNoise);        
 
-        pValsFlipped = fliplr(pVals);
-
-
-%         k = polyfit(1/S:1/S:1,pValsFlipped,1)
-% %         
-%         [pVals, pdfUnique, cdfsUnique, intUnique] = p_values_emccd_sorted(sortTruncI,20,gain, adFactor, countOffset, roNoise);        
-% % 
-%         figure,histogram(sortTruncI,'normalization','pdf')
-%         hold on
-%         plot(intUnique,pdfUnique)
-%         xlim([0 300])
-%         
-%         histogram(sortTruncI,'normalization','cdf','DisplayStyle','stairs')
-%         hold on
-%         plot(intUnique,cdfsUnique)
-
-        % Find outliers https://projecteuclid.org/journals/annals-of-statistics/volume-31/issue-6/The-positive-false-discovery-rate--a-Bayesian-interpretation-and/10.1214/aos/1074290335.full
-        threshold = ((1:S)./(S)).*qStar; % m-number of remaining pixels 
-%                 threshold = ((1:m)./(S)).*qStar; % m-number of remaining pixels 
-
-        outliers = find(pValsFlipped < threshold,1,'last');
-        if ~isempty(outliers)
-            nOutliers = outliers(end);
-            hasOutliers = 1;
+        if runs == 1
+            [threshold, nOutliers, outliers,hasOutliers ] = calc_bh_threshold(sortI, lambdaBg,gain, adFactor, countOffset, roNoise,qStar);
+            m = S; % first step 0 outliers
         else
-            hasOutliers = 0;
+            [threshold, nOutliers, outliers, hasOutliers ] = calc_bh_threshold(sortTruncI, lambdaBg, gain, adFactor, countOffset, roNoise,qStar);
         end
 %         outliers
         structRes.nOutliers(runs) =  nOutliers;
         structRes.lambdaBg(runs) =  lambdaBg;
-        structRes.threshold(runs) =  sortI(S - nOutliers);
+        
+        % remove outliers for next turn
+        m = m - nOutliers;
+        sortTruncI = sortI(1:m);
+        structRes.threshold(runs) =  sortI(m);
     end
-    idxBgEstimation = S - nOutliers;
+    idxBgEstimation = m;
     intThreshBg = sortI(idxBgEstimation);
-    intThreshBg = round(intThreshBg);  % why -1?
+    intThreshBg = round(intThreshBg); 
 %     
 %    f= figure,
 %     tiledlayout(1,2)
@@ -336,6 +270,46 @@ function [lambdaBg,intThreshBg,structRes ] = ...
 %    print('pvaldist.png','-depsc','-r300')
 % 
 
+               
+%    direct check (without mle
+%         vv = 10:0.1:60;
+%         dat=  arrayfun(@(x) logL(sortTruncI,x),vv);
+%         figure,plot(vv,dat)
+%         
+
+end
+
+function [threshold, nOutliers, outliers,hasOutliers ] = calc_bh_threshold(sortI, lambdaBg, gain, adFactor, countOffset, roNoise,qStar)
+        % Calculate p-values. Anything above mean+6STD from the dist automatically assumed to be   outliers      
+        [pVals, pdfUnique, cdfsUnique, intUnique] = p_values_emccd_sorted(sortI,lambdaBg, gain, adFactor, countOffset, roNoise);   
+
+%         [pVals, pdfUnique, cdfsUnique, intUnique] = p_values_emccd_continuous(sortI,lambdaBg, gain, adFactor, countOffset, roNoise);        
+        pValsFlipped = fliplr(pVals);
+
+        m = length(sortI);
+
+        % Find outliers https://projecteuclid.org/journals/annals-of-statistics/volume-31/issue-6/The-positive-false-discovery-rate--a-Bayesian-interpretation-and/10.1214/aos/1074290335.full
+        threshold = ((1:m)./(m)).*qStar; % m-number of remaining pixels % BH procedure
+
+        outliers = find(pValsFlipped < threshold,1,'last');
+
+
+        if ~isempty(outliers)
+            nOutliers = outliers(end);
+            hasOutliers = 1;
+        else
+            hasOutliers = 0;
+            nOutliers = 0;
+        end
+        
+        %         figure,histogram(sortTruncI,'normalization','pdf')
+        %         hold on
+        %         plot(intUnique,pdfUnique)
+        %         xlim([0 300])
+        %         
+        %         histogram(sortTruncI,'normalization','cdf','DisplayStyle','stairs')
+        %         hold on
+        %         plot(intUnique,cdfsUnique)
 end
 
 function [logL] = log_likelihood_trunc_dist(sortTruncI,lambda,...
@@ -567,7 +541,7 @@ function [pVals,pdfUnique,cdfsUnique,intUnique] = p_values_emccd_sorted(sortedIn
     % Evaluate the CDF only at the unique intensities 
 
     [pdfUnique,cdfsUnique] = pdf_cdf_emccd(intUnique',lambda,gain, adFactor, countOffset, roNoise,L,U);
-%     [~, cdfsEnd] = pdf_cdf_emccd(min(U,max(intUnique)+1),lambda,gain, adFactor, countOffset, roNoise,L,U);
+    [~, cdfsEnd] = pdf_cdf_emccd(max(intUnique)+0.5,lambda,gain, adFactor, countOffset, roNoise,L,U);
 %     cdfsUnique = cdfsUnique./cdfsEnd;
 %     pdfUnique = pdfUnique./cdfsEnd;
 

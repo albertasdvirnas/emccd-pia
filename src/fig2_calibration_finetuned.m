@@ -1,6 +1,6 @@
 % fig2_calibration(chipPars)
 
-function [lambdaBg,intThreshBg,structRes] = fig2_calibration(chipPars,outFig,images,qStar,showfig)
+function [lambdaBg,intThreshBg] = fig2_calibration(chipPars,outFig,images,qStar,showfig)
 
 %
 % Plot of the estimated lambda_bg using a beads image
@@ -78,7 +78,7 @@ end
 % Maximum-likelihood estimation for lambda_bg estimation. Should we also
 % re-fit other params?
 disp('Estimating lambda_bg.');
-[lambdaBg , intThreshBg,structRes] = ...
+[lambdaBg , intThreshBg] = ...
     estimate_bg_params(images.imAverage(:), gain, adFactor, countOffset, roNoise, qStar);
 disp(' ')
 
@@ -100,7 +100,7 @@ disp('Generating histogram over pixel intensities')
 % binEdges  =  generate_binedges(images.imAverage, ...
 %                   binWidthPerSigmaBg, lambdaBg,gain, adFactor, countOffset, roNoise );
 
-binEdges = [ceil(L):floor(U)]-0.5; 
+binEdges = ceil(L):floor(U); 
 histAll = histcounts(images.imAverage(:),binEdges);    
 disp(' ')   
 % hold on
@@ -124,7 +124,7 @@ nPixels = numel(images.imAverage(:));
 % Estimate the number of bg pixels
 idxThreshTrueBg = length(find(images.imAverage(:) <= intThreshBg));   
 %
-[~,cdfAtThreshTrueBg] = pdf_cdf_emccd(intThreshBg+0.5,lambdaBg,gain,adFactor,countOffset,roNoise,L,U);  
+[~,cdfAtThreshTrueBg] = pdf_cdf_emccd(intThreshBg+1.5,lambdaBg,gain,adFactor,countOffset,roNoise,L,U);  
 %
 nBg = min(idxThreshTrueBg/cdfAtThreshTrueBg, nPixels); 
 % Estimate the expected number of bin counts 
@@ -163,7 +163,7 @@ end
 end
 
 
-function [lambdaBg,intThreshBg,structRes ] = ...
+function [lambdaBg,intThreshBg ] = ...
                     estimate_bg_params(intensities,gain, adFactor, countOffset, roNoise,qStar)
 
     %
@@ -229,7 +229,7 @@ function [lambdaBg,intThreshBg,structRes ] = ...
     S = numel(sortI);
     
     m = S;
-    nOutliers = round(m/2);
+%     nOutliers = round(m/2);
     
 
     
@@ -240,20 +240,20 @@ function [lambdaBg,intThreshBg,structRes ] = ...
                          
      % Recursively reduce the data set until there are no "outliers" left.
     hasOutliers = 1;
-%     nOutliers = 0;
+    nOutliers = 0;
     runs = 0;
     diffLambdas = Inf;
     lambdaPrev = 0;
     
     structRes = [];
-    while hasOutliers && runs < 10 && diffLambdas > 0.00001
+    while hasOutliers %&& runs < 10 && diffLambdas > 0.00001
         runs = runs + 1;
         % Remove outliers
-        m = S - nOutliers;
+        m = m - nOutliers;
         sortTruncI = sortI(1:m);
         % Fit lambda
         lamGuess = abs((sortTruncI(round(m/2)) - countOffset)/r);
-        structRes.lamGuess(runs) = lamGuess;
+               
 %    direct check (without mle
 %         vv = 10:0.1:60;
 %         dat=  arrayfun(@(x) logL(sortTruncI,x),vv);
@@ -271,7 +271,7 @@ function [lambdaBg,intThreshBg,structRes ] = ...
         lambdaPrev = lambdaBg;
         % 
         % Calculate p-values. Anything above mean+6STD from the dist automatically assumed to be   outliers      
-        [pVals, pdfUnique, cdfsUnique, intUnique] = p_values_emccd_sorted(sortI,lambdaBg, gain, adFactor, countOffset, roNoise);        
+        [pVals, pdfUnique, cdfsUnique, intUnique] = p_values_emccd_sorted(sortTruncI,lambdaBg, gain, adFactor, countOffset, roNoise);        
 %         [pVals, pdfUnique, cdfsUnique, intUnique] = p_values_emccd_continuous(sortI,lambdaBg, gain, adFactor, countOffset, roNoise);        
 
         pValsFlipped = fliplr(pVals);
@@ -291,9 +291,10 @@ function [lambdaBg,intThreshBg,structRes ] = ...
 %         plot(intUnique,cdfsUnique)
 
         % Find outliers https://projecteuclid.org/journals/annals-of-statistics/volume-31/issue-6/The-positive-false-discovery-rate--a-Bayesian-interpretation-and/10.1214/aos/1074290335.full
-        threshold = ((1:S)./(S)).*qStar; % m-number of remaining pixels 
+        threshold = ((1:m)./(m)).*qStar; % m-number of remaining pixels 
 %                 threshold = ((1:m)./(S)).*qStar; % m-number of remaining pixels 
-
+%     
+%         m
         outliers = find(pValsFlipped < threshold,1,'last');
         if ~isempty(outliers)
             nOutliers = outliers(end);
@@ -302,11 +303,12 @@ function [lambdaBg,intThreshBg,structRes ] = ...
             hasOutliers = 0;
         end
 %         outliers
-        structRes.nOutliers(runs) =  nOutliers;
-        structRes.lambdaBg(runs) =  lambdaBg;
-        structRes.threshold(runs) =  sortI(S - nOutliers);
+        structRes.nOutliers(runs+1) =  nOutliers;
+        structRes.lambdaBg(runs+1) =  lambdaBg;
+%                 structRes.lambdaBg(runs+1) =  lambdaBg;
+
     end
-    idxBgEstimation = S - nOutliers;
+    idxBgEstimation = m;
     intThreshBg = sortI(idxBgEstimation);
     intThreshBg = round(intThreshBg);  % why -1?
 %     
@@ -388,17 +390,17 @@ function [logL] = log_likelihood_trunc_dist(sortTruncI,lambda,...
                       % then the log-likelihood calculation is exact.
                      
     % Get bin edges
-    binEdges = [ceil(L):binWidth:floor(U)]-0.5; % bin edges shifted by half
+    binEdges = ceil(L):binWidth:floor(U);
 %     binEdges = min(sortTruncI)-binWidth/2:binWidth:max(sortTruncI) - binWidth/2;
 %     binEdges = [binEdges , max(sortTruncI) + binWidth/2];   
     histAll = histcounts(sortTruncI,binEdges)';
     binPos = binEdges(1:end-1) + diff(binEdges)/2;
    
-    [pdfEmccd, cdfEmccd] = pdf_cdf_emccd(binPos,lambda,gain, adFactor, countOffset, roNoise,L,U);
+    [pdfEmccd,cdfEmccd] = pdf_cdf_emccd(binPos,lambda,gain, adFactor, countOffset, roNoise,L,U);
 
 %     [pdfEmccd,cdfEmccd] = pdf_cdf_emccd(binPos,lambda,chipPars,N);
     
-    [~ ,cdfEmccdEnd] = pdf_cdf_emccd(min(binEdges(end),max(sortTruncI)+0.5),lambda,gain, adFactor, countOffset, roNoise,L,U);
+    [~ ,cdfEmccdEnd] = pdf_cdf_emccd(min(binEdges(end),max(sortTruncI)+1),lambda,gain, adFactor, countOffset, roNoise,L,U);
 %     [~ ,cdfEmccdStart] = pdf_cdf_emccd(30,lambda,gain, adFactor, countOffset, roNoise,L,U);
 
     % log-likelihood

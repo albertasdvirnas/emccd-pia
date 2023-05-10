@@ -1,6 +1,6 @@
 % fig2_calibration(chipPars)
 
-function [lambdaBg,intThreshBg,structRes] = fig2_calibration(chipPars,outFig,images,qStar,showfig)
+function [lambdaBg,intThreshBg,structRes] = fig2_calibration(chipPars,outFig,images,alphaStar,showfig)
 
 %
 % Plot of the estimated lambda_bg using a beads image
@@ -19,7 +19,7 @@ if nargin < 3 % in case we run calibration on specific test image for fig2
 
     % Input parameters
     filename = chipPars.inputImage; %'data\100x_gain100_lamp50_018.tif';
-    qStar = 0.5; % parameter which controls the false detection rate (FDR)
+    alphaStar = chipPars.alphaStar; % parameter which controls the false detection rate (FDR)
     
     % Images and associated information                             
     im = imread(filename); 
@@ -79,7 +79,7 @@ end
 % re-fit other params?
 disp('Estimating lambda_bg.');
 [lambdaBg , intThreshBg,structRes] = ...
-    estimate_bg_params(images.imAverage(:), gain, adFactor, countOffset, roNoise, qStar);
+    estimate_bg_params(images.imAverage(:), gain, adFactor, countOffset, roNoise, alphaStar);
 disp(' ')
 
 if showfig
@@ -124,6 +124,7 @@ nPixels = numel(images.imAverage(:));
 % Estimate the number of bg pixels
 idxThreshTrueBg = length(find(images.imAverage(:) <= intThreshBg));   
 %
+import Core.pdf_cdf_emccd;
 [~,cdfAtThreshTrueBg] = pdf_cdf_emccd(intThreshBg+0.5,lambdaBg,gain,adFactor,countOffset,roNoise,L,U);  
 %
 nBg = min(idxThreshTrueBg/cdfAtThreshTrueBg, nPixels); 
@@ -232,7 +233,7 @@ function [lambdaBg,intThreshBg,structRes ] = ...
     nOutliers = round(m/2);
     
 
-    
+    import Core.log_likelihood_trunc_dist; 
 
     % Specify likelihood function
     logL = @(data,lambda) log_likelihood_trunc_dist(data , lambda , ...
@@ -259,22 +260,24 @@ function [lambdaBg,intThreshBg,structRes ] = ...
 %         dat=  arrayfun(@(x) logL(sortTruncI,x),vv);
 %         figure,plot(vv,dat)
 %         
-        try 
             [lambdaBg,pci] = mle(sortTruncI,'logpdf',logL,'start',lamGuess,'lowerBound',0,'Options',opt);
-                % in the first iteration (when there are outliers) 
-                % the MLE routine may not converge too well and
-                % hence will pass on a warning. Here we suppress this warning.
-        catch
-        end
-
+           
         diffLambdas = abs((lambdaBg - lambdaPrev)/lambdaPrev);
         lambdaPrev = lambdaBg;
+% [pVals,pdfUnique,cdfsUnique,intUnique] = p_values_emccd_sorted(sortedInt, lambda, gain, adFactor, countOffset, roNoise)
+        
+        cdfSorted =  @(x)  1-p_values_emccd_sorted(x+0.5,lambdaBg,gain,adFactor,countOffset,roNoise);
+        % Now calculate the estimate of FDR and FOR:
+        [forEst, stats ] = estimate_stats(intensities, ...
+             sortI(m),cdfSorted,qStar);
+%         [pBlackBgOptimal , pBlackSignalOptimal , misClassRateOptimal,FDR(i),FOR(i)] = estimate_pblack_quick(images.imAverage, ...
+%         intThreshBlackWhite, intThreshBg , lambdaBg , gain,adFactor,offset,roNoise);
         % 
         % Calculate p-values. Anything above mean+6STD from the dist automatically assumed to be   outliers      
-        [pVals, pdfUnique, cdfsUnique, intUnique] = p_values_emccd_sorted(sortI,lambdaBg, gain, adFactor, countOffset, roNoise);        
+%         [pVals, pdfUnique, cdfsUnique, intUnique] = p_values_emccd_sorted(sortI,lambdaBg, gain, adFactor, countOffset, roNoise);        
 %         [pVals, pdfUnique, cdfsUnique, intUnique] = p_values_emccd_continuous(sortI,lambdaBg, gain, adFactor, countOffset, roNoise);        
 
-        pValsFlipped = fliplr(pVals);
+%         pValsFlipped = fliplr(pVals);
 
 
 %         k = polyfit(1/S:1/S:1,pValsFlipped,1)
@@ -291,15 +294,17 @@ function [lambdaBg,intThreshBg,structRes ] = ...
 %         plot(intUnique,cdfsUnique)
 
         % Find outliers https://projecteuclid.org/journals/annals-of-statistics/volume-31/issue-6/The-positive-false-discovery-rate--a-Bayesian-interpretation-and/10.1214/aos/1074290335.full
-        threshold = ((1:S)./(S)).*qStar; % m-number of remaining pixels 
+%         threshold = ((1:S)./(S)).*qStar; % m-number of remaining pixels 
 %                 threshold = ((1:m)./(S)).*qStar; % m-number of remaining pixels 
 
-        outliers = find(pValsFlipped < threshold,1,'last');
+%         outliers = find(pValsFlipped < threshold,1,'last');
+        outliers = intensities>forEst;
         if ~isempty(outliers)
-            nOutliers = outliers(end);
+            nOutliers = sum(outliers);
             hasOutliers = 1;
         else
             hasOutliers = 0;
+            nOutliers = 0;
         end
 %         outliers
         structRes.nOutliers(runs) =  nOutliers;
@@ -307,8 +312,9 @@ function [lambdaBg,intThreshBg,structRes ] = ...
         structRes.threshold(runs) =  sortI(S - nOutliers);
     end
     idxBgEstimation = S - nOutliers;
-    intThreshBg = sortI(idxBgEstimation);
-    intThreshBg = round(intThreshBg);  % why -1?
+    intThreshBg = forEst;
+%     intThreshBg = sortI(idxBgEstimation);
+%     intThreshBg = round(intThreshBg);  % why -1?
 %     
 %    f= figure,
 %     tiledlayout(1,2)
@@ -338,186 +344,22 @@ function [lambdaBg,intThreshBg,structRes ] = ...
 
 end
 
-function [logL] = log_likelihood_trunc_dist(sortTruncI,lambda,...
-                             gain, adFactor, countOffset, roNoise)
-
-    % Calculates the  log-likelihood for the truncated EMCCD distribution . 
-    % 
-    % Input: 
-    % 
-    % sortTruncI = sorted and truncated intensity values 
-    % lambda = Poisson parameter
-    % chipPars = struct containing the chip parameters
-    % N = number of integration points when calculating PDF 
-    %     through numerical inverse Fourier-transform
-    %     of the characteristic function 
-    %
-    % Output:
-    % 
-    % logL = log likelihood
-    %
-    % Comment: 
-    % The truncated PDF is
-    %      PDF_trunc = pdfEmccd(I)/cdfEmccd(I_trunc) for I <= I_trunc
-    %      PDF_trunc = 0 elsewhere
-    % Here, I_trunc is the truncation intensity.
-    %  
-    % Dependencies: emccd_distribution/pdf_cdf_emccd.m
-    %
-    r = gain/adFactor;
-
-        % Analytic expressions for the mean and variance
-    EX = lambda*gain/adFactor+countOffset; 
-    STD = sqrt(roNoise^2 + 2*lambda*r^2 + 1/12);  
-    
-    % Analytic expression for the characteristic function 
-    % for the EMCCD distribution
-%     cfAnaly = @(t) exp(-t.^2*roNoise^2/2 + lambda./(1-1i*r*t) - lambda + 1i*t*offset)*2*sin(t/2)/t;
-
-    %
-   % limits where pdf is nonzero
-    numstds = 6;
-    L = EX-numstds*STD; % mean - 6 std
-    U = EX+numstds*STD;
-    
-%     U = min(max(sortTruncI),U); % limit to U for truncated case
-
-    
-    % Hard-coded variable
-    binWidth = 1;     % if this parameter is = 1 and the intensities are integers, 
-                      % then the log-likelihood calculation is exact.
-                     
-    % Get bin edges
-    binEdges = [ceil(L):binWidth:floor(U)]-0.5; % bin edges shifted by half
-%     binEdges = min(sortTruncI)-binWidth/2:binWidth:max(sortTruncI) - binWidth/2;
-%     binEdges = [binEdges , max(sortTruncI) + binWidth/2];   
-    histAll = histcounts(sortTruncI,binEdges)';
-    binPos = binEdges(1:end-1) + diff(binEdges)/2;
-   
-    [pdfEmccd, cdfEmccd] = pdf_cdf_emccd(binPos,lambda,gain, adFactor, countOffset, roNoise,L,U);
-
-%     [pdfEmccd,cdfEmccd] = pdf_cdf_emccd(binPos,lambda,chipPars,N);
-    
-    [~ ,cdfEmccdEnd] = pdf_cdf_emccd(min(binEdges(end),max(sortTruncI)+0.5),lambda,gain, adFactor, countOffset, roNoise,L,U);
-%     [~ ,cdfEmccdStart] = pdf_cdf_emccd(30,lambda,gain, adFactor, countOffset, roNoise,L,U);
-
-    % log-likelihood
-    logL = sum(histAll.*log(pdfEmccd)) - sum(histAll)*log(cdfEmccdEnd);
-    
- 
-  
-end
 
 
-
-function [pdfEmccd,cdfEmccd] = pdf_cdf_emccd(intensities,lambda,gain,adFactor,offset,roNoise,L,U)
-
-    % Generates EMCCD probability density function (PDF) and 
-    % cumulative distribution functin (CDF) by numerical inversion 
-    % of the characteristic function.
-    %
-    % Input:
-    % 
-    % intensities = vector (or matrix) with intensity values
-    % lambda = Poisson parameter
-    % chipPars = struct containing the chip parameters
-    % N = number of integration points.
-    %
-    % Output:
-    % 
-    % pdfEmccd = EMCCD probability density function 
-    % cdfEmccd = cumulative distribution function 
-    %
-    % Refs: V. Witkovský, "Numerical inversion of a characteristic function: 
-    % An alternative tool to form the probability distribution of 
-    % output quantity in linear measurement models.", 
-    % Acta IMEKO 5.3 (2016): 32-44, see Eqs. (8) and (9).
-    %
-    %
-    
-    % Hard-coded variables:
-%     pdfMin = 1E-14;   % smallest allow value for PDF 
-                      % (need to be > 0 to avoid errors in 
-                      % log-likelihood calculations)
-%     cdfDelta = 1E-14; % smallest allowed CDF value is cdfDelta,
-                      % and largest allowed CDF value is 1-cdfDelta.
-      
-     % Extract chip parameters
-%     gain = chipPars.gain;
-%     adFactor = chipPars.adFactor;
-%     offset = chipPars.countOffset;
-%     roNoise = chipPars.roNoise;
-    r = gain/adFactor;
-      
-%     % Analytic expressions for the mean and variance
-    EX = lambda*gain/adFactor+offset; 
-%     STD = sqrt(roNoise^2 + 2*lambda*r^2 + 1/12);  
-%     
-%     % Analytic expression for the characteristic function 
-%     % for the EMCCD distribution
-% %     cfAnaly = @(t) exp(-t.^2*roNoise^2/2 + lambda./(1-1i*r*t) - lambda + 1i*t*offset)*2*sin(t/2)/t;
+% function [L,U] = dist_bounds(sortedInt, lambda, gain, adFactor, countOffset, roNoise)
 % 
-%     %
-%    % limits where pdf is nonzero
+%     % bounds
+% 
+%     r = gain/adFactor;
+% 
+%     % Analytic expressions for the mean and variance
+%     EX = lambda*gain/adFactor+countOffset; 
+%     STD = sqrt(roNoise^2 + 2*lambda*r^2 + 1/12);  
+%     % limits where pdf is nonzero
 %     numstds = 6;
 %     L = EX-numstds*STD; % mean - 6 std
 %     U = EX+numstds*STD;
-%     U = min(max(intensities),U); % limit to U for truncated case
-
-
-	% optimal value for step parameter
-    dt = 2*pi/(U-L);
-
-    % For discrete, integral is -pi..pi, because the output variable is
-    % discretized
-    N = pi/dt;
-    
-    
-    % Estimate step size, dt, for numerical integration
-    t = (1:1:N)' * dt;  
-
-    cf = char_fun(t , roNoise,lambda,r,offset);
-
-        % y is the grid for our pdf (from L to U)
-    y = intensities;
-    
-    
-    % calculate main integral
-    pdfEmccd = trapezoidal_pdf(y,dt,t,cf);
-    cdfEmccd = trapezoidal_cdf(y,dt,t,cf,EX);
-
-   
-    
-end
-
-
-function cfCombined = char_fun(t , roNoise,lambda,r,offset)
-%
-
-    cfAnaly = exp(-t.^2*roNoise^2/2 + lambda./(1-1i*r*t) - lambda + 1i*t*offset);
-    cfROUND = 2*sin(t/2)./t;
-    cfROUND(t==0) = 1;
-
-
-    
-    cfCombined = cfAnaly.*cfROUND;
-
-end
-
-%
-function pdf = trapezoidal_pdf(y,dt,t,cf)
-    w = ones(length(t),1);
-    w(end) = 1/2; % last coef is 1/2
-       
-    pdf = dt/pi*(1/2 +cos(t*y)'*(real(cf).*w)+sin(t*y)'*(imag(cf).*w));
-end
-%
-function cdf = trapezoidal_cdf(y,dt,t,cf,ex)
-    w = ones(length(t),1);
-    w(end)=1/2; % last coef is 1/2
-    cdf = 1/2 - dt/pi*(1/2*(ex-y') +cos(t*y)'*(imag(cf./t).*w)-sin(t*y)'*(real(cf./t).*w));
-end
-
+% end
 
 function [pVals,pdfUnique,cdfsUnique,intUnique] = p_values_emccd_sorted(sortedInt, lambda, gain, adFactor, countOffset, roNoise)
 
@@ -563,29 +405,36 @@ function [pVals,pdfUnique,cdfsUnique,intUnique] = p_values_emccd_sorted(sortedIn
     intUnique = intUnique(intUnique <= floor(U));
     
     nVals = length(idx);
-
+    import Core.pdf_cdf_emccd;
     % Evaluate the CDF only at the unique intensities 
+    if ~isempty(intUnique)
+        [pdfUnique,cdfsUnique] = pdf_cdf_emccd(intUnique',lambda,gain, adFactor, countOffset, roNoise,L,U);
+        % remove ones out of range
+        cdfsUnique = min(cdfsUnique,1);
+        cdfsUnique = max(cdfsUnique,0);
 
-    [pdfUnique,cdfsUnique] = pdf_cdf_emccd(intUnique',lambda,gain, adFactor, countOffset, roNoise,L,U);
+        % Calculate p-values for all input intensities
+        pVals = zeros(1,length(sortedInt));
+        for k=1:nVals-1   
+            pVals(idx(k):idx(k+1)-1) = 1 - cdfsUnique(k);
+        end
+        pVals(idx(nVals):end) = 1 - cdfsUnique(end);
+    else
+        pdfUnique = 0;
+        cdfsUnique = 1;
+        pVals(1:length(sortedInt)) = 0;
+    end
 %     [~, cdfsEnd] = pdf_cdf_emccd(min(U,max(intUnique)+1),lambda,gain, adFactor, countOffset, roNoise,L,U);
 %     cdfsUnique = cdfsUnique./cdfsEnd;
 %     pdfUnique = pdfUnique./cdfsEnd;
 
-    % remove ones out of range
-    cdfsUnique = min(cdfsUnique,1);
-    cdfsUnique = max(cdfsUnique,0);
+
 % 
 %     cdfsUnique(intUnique>floor(U)) = nan; % should not be the case
 %     pdfUnique(intUnique>floor(U)) = nan;
 
 %     [~ , cdfsUnique] = pdf_cdf_emccd(intUnique,lambda,chipPars,N);
 
-    % Calculate p-values for all input intensities
-    pVals = zeros(1,length(sortedInt));
-    for k=1:nVals-1   
-        pVals(idx(k):idx(k+1)-1) = 1 - cdfsUnique(k);
-    end
-    pVals(idx(nVals):end) = 1 - cdfsUnique(end);
 
 
 end

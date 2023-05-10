@@ -1,4 +1,4 @@
-function [] = fig3_probabilitstic_segmentation(imageNames, SNRVals, chipPars, outFig)
+function [results,stats] = emccdpia_thresholding(imageNames, SNRVals, chipPars, outFig,qStar,ifplot)
     
 %     if nargin < 1
 %         inputFolder = 'synthSingleFrame\100x\';
@@ -6,7 +6,7 @@ function [] = fig3_probabilitstic_segmentation(imageNames, SNRVals, chipPars, ou
 %     end
     
     % input parameter values
-     qStar = 0.5; % parameter which controls the false detection rate (FDR)
+%      qStar = 0.5; % parameter which controls the false detection rate (FDR)
      pValThreshBinarization = 1E-2;
       
     % p-value threshold using the background distribution
@@ -55,15 +55,13 @@ function [] = fig3_probabilitstic_segmentation(imageNames, SNRVals, chipPars, ou
          % Maximum-likelihood estimation for background strength. Todo
          % here: use estimated values, otherwise this is not
          % realistic
-         disp('Estimating lambda_bg.');
-         % todo: select for specific gain
-%          chipParsCurrent = 
+         disp('Estimating lambda_bg.'); 
         gain = chipPars.gain;
         adFactor = chipPars.adFactor;
         roNoise = chipPars.roNoise;
         offset = chipPars.countOffset;
 
-        [lambdaBg,intThreshBg] = fig2_calibration(chipPars,[],images,qStar,1);
+        [lambdaBg, intThreshBg, stats{j}] =  emccdpia_estimation(chipPars,[],images,qStar,ifplot);
 %          [lambdaBg , intThreshBg] = ...
 %                         estimate_bg_params(images.imAverage(:),chipPars,qStar);
          lambdaBgSave(j) = lambdaBg;
@@ -78,7 +76,7 @@ function [] = fig3_probabilitstic_segmentation(imageNames, SNRVals, chipPars, ou
 
 
         % Determine p(black|bg), p(black|signal) and 1-acc
-        [p_black_bg , p_black_sig , misClassRateOptimal ] = estimate_pblack_quick(images.imAverage, ...
+        [p_black_bg , p_black_sig , misClassRateOptimal, FDR, FOR ] = estimate_pblack_quick(images.imAverage, ...
                 intThreshBlackWhite, intThreshBg , lambdaBg , gain,adFactor,offset,roNoise   );
         disp(['Estimated p(white|bg)  = ',num2str(1-p_black_bg)]);
         disp(['Estimated p(black|signal) = ',num2str(p_black_sig)]); 
@@ -297,7 +295,7 @@ end
 
 
 
-function  [pBlackBg , pBlackSignal , misClassRate ] = estimate_pblack_quick(intensities, ...
+function  [pBlackBg , pBlackSignal , misClassRate,FDR,FOR ] = estimate_pblack_quick(intensities, ...
              intThreshBlackWhite, intThreshBg , lambdaBg , gain,adFactor,offset,roNoise   )
 
     %   
@@ -335,14 +333,26 @@ function  [pBlackBg , pBlackSignal , misClassRate ] = estimate_pblack_quick(inte
     % Pre-processing  
     intensityVec = intensities(:);
     nPixels = numel(intensityVec);
+    uniqueVals = unique(intensityVec);
     
     % Number of background pixels. For synthetic images we know true
-    % numbers
-    nBackTruePart = length(find(intensityVec(:) <= intThreshBg));
-    [~,cdfAtThreshTrueBg] = pdf_cdf_from_characteristic_fun(intThreshBg+0.5,lambdaBg,gain,adFactor,offset,roNoise);
+    import Core.p_values_emccd_sorted;
+    cdfFun =  @(x)  1-p_values_emccd_sorted(x+0.5,lambdaBg,gain,adFactor,offset,roNoise);
 
-    %     (eq 12) manuscript
-    nBg = min(round(nBackTruePart/cdfAtThreshTrueBg), nPixels); 
+    stopIntensity = quantile(intensityVec,0.25)+0.5;
+    cdfIntensities = uniqueVals(1):stopIntensity-0.5;
+
+    stats.yval =    arrayfun(@(x) sum(intensityVec<=x), cdfIntensities);
+    stats.xval =    arrayfun(@(x) cdfFun(x), cdfIntensities);
+    nBg =  stats.xval'\stats.yval'; % nBg estimated as the slope of this
+
+
+%     % numbers % old nBg
+%     nBackTruePart = length(find(intensityVec(:) <= intThreshBg));
+%     [~,cdfAtThreshTrueBg] = pdf_cdf_from_characteristic_fun(intThreshBg+0.5,lambdaBg,gain,adFactor,offset,roNoise);
+% 
+%     %     (eq 12) manuscript
+%     nBg = min(round(nBackTruePart/cdfAtThreshTrueBg), nPixels); 
     
     % from test_fdr_pixel
 %     val = round(min(intensityVec))+5:round(max(intensityVec));
@@ -387,7 +397,12 @@ function  [pBlackBg , pBlackSignal , misClassRate ] = estimate_pblack_quick(inte
     % eq 18?
     fBg = (nBg + alpha)/(nPixels + 2*alpha);  % ratio of black pixels
     misClassRate = (1-pBlackBg).*fBg + pBlackSignal*(1-fBg); % ra
-    
+
+    % Also FDR and FOR here?
+    nWhite = max(0,nPixels - nBlack);
+
+    FDR = (nBg*(1-cdfAtThreshBlackWhite))/nWhite;
+    FOR = (nBlack-nBg*cdfAtThreshBlackWhite)/nBlack;
      
 end
 % 

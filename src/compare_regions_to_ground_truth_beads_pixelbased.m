@@ -1,24 +1,26 @@
-function [fdr,frr,tmr] = compare_regions_to_ground_truth_beads_pixelbased(signalLabelIm,groundTruthImage)
+function [fpr,fnr,tmr,FDR,FOR] = compare_regions_to_ground_truth_beads_pixelbased(signalLabelIm,groundTruthImage)
 
     %
     % Compares regions obtained using an image segmentation to 
     % ground truth results. 
     %
-    % Input:
+    % Args:
     %
     % signalLabelIm = matrix of the same size as original image, where the
-    %           value of each matrix element gives a signal region label
-    %           (a '0' represents a bg region)
+    %           value of each matrix element gives a white region label
+    %           (a '0' represents a black region)
     % groundTruthImage = ground truth image, where a '1' corresponds to a
     %                    a pixel where there are fluorescent molecules (signal),
     %                    and a '0' corresponds to a pixel where there are
     %                    no fluroescent molecules (background).
     %
-    % Output:
+    % Returns:
     %
-    % fdr = false detection rate
-    % frr = false rejection rate
-    % tmr = total misclassification rate
+    % fpr = false positive rate  FP/(FP+TN)
+    % fnr = false negative rate FN/(FN+TP)
+    % tmr = "error rate" 1-accuracy (1-ACC)
+    % FDR
+    % FOR
     %
     % Dependencies: None.
     %
@@ -33,19 +35,29 @@ function [fdr,frr,tmr] = compare_regions_to_ground_truth_beads_pixelbased(signal
     
     % Compare the binary image to the ground truth
     
-    % False rejection rate
-    noOfCorrectSignal = length (find(groundTruthImage(:)== 1 & binarySegImage(:) == 1));
-    noOfSignal = length( find(groundTruthImage == 1 ));
-    frr = 1 - noOfCorrectSignal/noOfSignal;
+    % False negative rate (FNR) FN/(FN+TP)
+    n_white_sig = length (find(groundTruthImage(:)== 1 & binarySegImage(:) == 1));
+    n_sig = length( find(groundTruthImage == 1 ));
+    fnr = 1 - n_white_sig/n_sig;
     
-    % False detection rate
-    noOfCorrectBg = length(find(groundTruthImage == 0 & binarySegImage == 0));
-    noOfBg = length( find(groundTruthImage == 0 ));
-    fdr = 1 - noOfCorrectBg/noOfBg;
+    % False Positive rate p(white|bg)= FPR = FP/(FP+TN)
+    n_black_bg = length(find(groundTruthImage == 0 & binarySegImage == 0));
+    n_bg = length( find(groundTruthImage == 0 ));
+    fpr = 1 - n_black_bg/n_bg;
    
-    % Total misclassification rate
-    noOfCorrect = noOfCorrectSignal + noOfCorrectBg;
+    % 1-ACCURACY (ACC)
+    noOfCorrect = n_white_sig + n_black_bg;
     tmr = 1 - noOfCorrect/noOfPixels;
-    
+
+    % FDR = FP/(FP+TN)
+    n_white_bg = length (find(groundTruthImage(:)== 0 & binarySegImage(:) == 1));
+    n_white = length( find(binarySegImage(:) == 1));
+
+    FDR = n_white_bg/n_white;
+
+    % FOR = FN/(FN+TN)
+    n_black_sig = length (find(groundTruthImage(:)== 1 & binarySegImage(:) == 0));
+    n_black = length( find(binarySegImage == 0 ));
+    FOR = n_black_sig/n_black;
     
 end

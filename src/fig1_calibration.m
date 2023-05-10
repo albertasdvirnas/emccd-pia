@@ -1,19 +1,29 @@
-function chipPars = fig1_calibration(no_gain_mat, gain_mat,outFig)
-    
+function [chipPars,chipParsAll] = fig1_calibration(no_gain_mat, gain_mat,outFig)
+    %   calculates chipParameters
+    %
     %   Args:
     %       no_gain_mat : file with no gain statistics
     %       gain_mat : mat file with gain statitistics 
     %
     %   Returns:
-    %       chipPars : estimated chip parameters
-    if nargin < 1
+    %       chipPars : estimated chip parameters using random subsampling
+    %       chipParsAll : estimated chip parameters using all data
+
+
+    if nargin < 1 % if no input, choose these as input sets
         no_gain_mat = '100x.mat';
         gain_mat = '20x.mat';
     end
 
-    %
+    gval = [50 100 300]; % gain value names
+    % remove 0.1% of  smallest and 0.1% largest values. How do we sort data
+    % when making such a cut??
+    % cuts = [0.01 .99];
+    cuts = [0.01 0.99];
+
+    % load data:
     dataGain0 =  importdata(no_gain_mat); % gives the same
-    dataGain =  importdata(gain_mat); % why 100 for offset estimation?
+    dataGain =  importdata(gain_mat); %
 
 
     idx = find(dataGain0.gain==0); % indices for gain
@@ -29,7 +39,6 @@ function chipPars = fig1_calibration(no_gain_mat, gain_mat,outFig)
     gain{1}.means = gain{1}.means(2:end,:);
     gain{1}.vars = gain{1}.vars(2:end,:);
 
-    gval = [50 100 300];
     for ii=1:length(gval)
         idx = find(dataGain.gain == gval(ii)); % indices for gain
         intv = dataGain.lamp(idx); % intensities
@@ -57,14 +66,14 @@ function chipPars = fig1_calibration(no_gain_mat, gain_mat,outFig)
 
 % gain = importdata('meanvardatasim.mat');
 
-% remove 0.1% of  smallest and 0.1% largest values
-% cuts = [0.01 .99];
-cuts = [0.01 0.99];
 
+
+% use all data for estimating, and random sampling for confidence intervals
 
 varcalc = cell(1,length(gain));
 mred = cell(1,length(gain));
 chipPars= [];
+chipParsAll = [];
 chipPars.inid = [];
 N = 1000; % over how many points
 Ntrials = 2500; % number of trials (for estimating confidence) /max Ntrials
@@ -80,6 +89,9 @@ for i=1:length(gain)
     sortV = varVec(sIdx);
     mVecRed = sortM(max(idx(1),1):idx(2));
     varVecRed = sortV(max(idx(1),1):idx(2));
+
+%     [chipPars,varcalc,mred ] = calc_chip_params(i,j,varVecTemp,mVecTemp,chipPars,varcalc,mred ); 
+    [chipParsAll ] = calc_chip_params(i,varVecRed,mVecRed,chipParsAll);
     
     if Ntrials*N>length(mVecRed)
         warning('too many trials, not enough data points');
@@ -94,7 +106,7 @@ for i=1:length(gain)
         [mVecTemp,pos2] = sort(mVecTemp);
         varVecTemp = varVecTemp(pos2);
 
-        [chipPars,varcalc,mred ] = calc_chip_params(i,j,varVecTemp,mVecTemp,chipPars,varcalc,mred ); 
+        [chipPars,varcalc,mred ] = calc_chip_params_hist(i,j,varVecTemp,mVecTemp,chipPars,varcalc,mred ); 
     end
     
     if i==1 % take means of offset and adfactor for more accurate statistics
@@ -191,7 +203,43 @@ fprintf('Estimated readout noise at 300: %.2f, std %.3f.\n',mean(chipPars.roNois
 
 end
 
-function [chipPars,varcalc,mred ] = calc_chip_params(i,j,varVecRed,mVecRed,chipPars,varcalc,mred  )
+% function
+function [chipPars ] = calc_chip_params(i,varVecRed,mVecRed,chipPars)
+    %
+    % function for offset from the mean/variance equations
+    offset_fun = @(f,g,b1,b2) f*(b1-b2)/(2*g-1);
+
+    % function for sigma from mean/variance relations
+    sigma_fun = @(b1,delta,f) sqrt(b1-1/12+delta/f);
+    
+    % calculates chip params for each case
+    mPad =[ones(length(mVecRed),1) mVecRed]; % will solve AX+Y = B
+
+    gaincoeffs = mPad\varVecRed; % X = A\B  is solution to A*X = B. So we solve Y=B by first row and AX=B by second row 
+
+
+    varcalc = mPad * gaincoeffs;
+    mred = mVecRed;
+    chipPars.gaincoeffsAll = gaincoeffs; 
+    if i == 1
+        chipPars.offset = gaincoeffs(1);
+        chipPars.slope = gaincoeffs(2); % ADU factor f is 1/slope
+        chipPars.adFactor = 1/(chipPars.slope);
+%         fprintf('Estimated slope: %.2f.\n', chipPars.slope(j));
+    else % adFactor and  offsetFactor are mean(offset) and 1/mean(slope)
+        % current gain is the slope times f/2
+        chipPars.gain(i) = gaincoeffs(2)*chipPars.adFactor/2; 
+        chipPars.countOffset(i) = offset_fun(chipPars.adFactor,chipPars.gain(i),chipPars.offset,gaincoeffs(1));
+
+        %         (chipPars.offset-gaincoeffs(1))*chipPars.adFactor/(chipPars.gain{i}*2-1); % should be gain/2??
+        %fprintf('Estimated count offset: %.2f.\n',chipPars.countOffset100);
+        chipPars.roNoise(i) = sigma_fun(chipPars.offset,chipPars.countOffset(i),chipPars.adFactor);
+        %         sqrt((chipPars.offset+chipPars.countOffset{i}/chipPars.adFactor)*chipPars.adFactor^2);
+    end
+end
+
+
+function [chipPars,varcalc,mred ] = calc_chip_params_hist(i,j,varVecRed,mVecRed,chipPars,varcalc,mred  )
     %
     % function for offset from the mean/variance equations
     offset_fun = @(f,g,b1,b2) f*(b1-b2)/(2*g-1);
@@ -229,9 +277,9 @@ end
 
 function plot_line_fits_calibration(chipPars,varcalc)
 
-figure
-tiledlayout(2,2,'TileSpacing','tight')
-ax1 = nexttile
+figure;
+tiledlayout(2,2,'TileSpacing','tight');
+ax1 = nexttile;
 % clf
 % scatter(  chipPars.inid.mVecTemp{1}, chipPars.inid.varVecTemp{1})
 hold on
@@ -350,3 +398,39 @@ fig.PaperPosition = [0 0 5 3.6];
 
 
 end
+%
+% pyenv('Version','python.exe')
+% pe = pyenv;
+% mod = py.importlib.import_module('sklearn');
+% pyrun('from sklearn.linear_model import TheilSenRegressor')
+% 
+% N=1000;
+% m= 1000;
+% coefV = zeros(m,2);
+% pos   = randperm(length(mVecRed));
+% for j=1:m%               
+%     mVecTemp = mVecRed(pos((j-1)*(N)+1:j*N));
+%     varVecTemp = varVecRed(pos((j-1)*(N)+1:j*N));
+%     yval = py.numpy.array(varVecTemp);
+%     Xval = py.numpy.array(mVecTemp);
+%     
+%     tic
+%     reg = pyrun("reg = TheilSenRegressor(random_state=0).fit(X.reshape(-1, 1), y)","reg",X = Xval,y = yval);
+%     toc
+%     coefV(j,:) = [double(reg.coef_) double(reg.intercept_)];
+% end
+% 
+% 
+% N=length(mVecRed);
+% m= 1;
+% coefV = zeros(m,2);
+% pos   = randperm(length(mVecRed));
+% j=1;
+% mVecTemp = mVecRed(pos((j-1)*(N)+1:j*N));
+% varVecTemp = varVecRed(pos((j-1)*(N)+1:j*N));
+% yval = py.numpy.array(varVecTemp);
+% Xval = py.numpy.array(mVecTemp);
+% tic
+% reg = pyrun("reg = TheilSenRegressor(random_state=0).fit(X.reshape(-1, 1), y)","reg",X = Xval,y = yval);
+% toc
+% [1/double(reg.coef_) double(reg.intercept_)]

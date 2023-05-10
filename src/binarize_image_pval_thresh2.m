@@ -1,7 +1,7 @@
 
 
-function [binarizedImage , intThresh ] = binarize_image_pval_thresh(...
-              imageInput, pValThresh ,lambdaBg ,  gain,adFactor,offset,roNoise)
+function [binarizedImage , intThresh ] = binarize_image_pval_thresh2(...
+              imageInput, pValThresh ,lambdaBg ,  gain,adFactor,offset,roNoise,intThresh)
 
     % 
     % Binarizes an image using a p-value threshold
@@ -27,16 +27,22 @@ function [binarizedImage , intThresh ] = binarize_image_pval_thresh(...
     % Hard-coded variables
 %     N= 2^8;     % number of integration points for evaluating the EMCCD CDF
 %     tol=1E-5;   % accuracy for the inverse CDF calculation.
+
+    if nargin >=8
+            binarizedImage = imbinarize(imageInput,intThresh);
+            return;
+    end
     
 % inverse cdf to get intThresh
     % first these are quickly calculated bounds
-    [L,U,EX,STD] = calc_bounds(lambdaBg,gain,adFactor,offset,roNoise);
+    import Core.calc_bounds;
+    [L, U, EX, STD] = calc_bounds(lambdaBg,gain,adFactor,offset,roNoise);
     
     % that give intensities to calculate over
-    intensities = ceil(L):floor(U);
+    intensities = [ceil(L):floor(U)]+0.5; % take edge point of each box, so +0.5
     
     % cdf, in this case do not need to be truncated
-    [pdf,cdf] = pdf_cdf_from_characteristic_fun(intensities,lambdaBg,gain,adFactor,offset,roNoise);
+    [pdf, cdf] = pdf_cdf_from_characteristic_fun(intensities,lambdaBg,gain,adFactor,offset,roNoise);
     
     % find the value where pvalue=1-cdf > pValThresh
     intThresh = find(1-cdf < pValThresh,1,'first');
@@ -45,7 +51,7 @@ function [binarizedImage , intThresh ] = binarize_image_pval_thresh(...
     intThresh = intensities(intThresh);
 
 %     intThresh = inverse_cdf_emccd( 1-pValThresh , lambdaBg , chipPars , N , tol);
-    intThresh = floor(intThresh)-0.5;  % since intensities are integers 
+%     intThresh = floor(intThresh)-0.5;  % since intensities are integers 
                                        % in experimental images, 
                                        % we set the threshold to be a half-integer
    

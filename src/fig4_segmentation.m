@@ -92,11 +92,11 @@ for i=1:length(imageFilenames)
 
     % w_white
     [bIm, labelIm] = bwboundaries(binarizedImage, 'noholes','CONN',4);
-    [regSizeThreshWhite, regSizesImg] = find_reg_thresh(bIm,allowedGapLength);
+    [regSizeThreshWhite, regSizesImg] = find_reg_thresh(bIm,labelIm,allowedGapLength);
     
     % w_black
     [bBg, labelBg] = bwboundaries(1-binarizedImage, 'noholes','CONN',4);
-    [regSizeThreshBg, regSizesBg] = find_reg_thresh(bBg,allowedGapLength);
+    [regSizeThreshBg, regSizesBg] = find_reg_thresh(bBg,labelBg,allowedGapLength);
 
     disp(['Region size threshold for black regions  = ',num2str(regSizeThreshBg)]);
     disp(['Region size threshold for white regions  = ',num2str(regSizeThreshWhite)]);  
@@ -110,7 +110,8 @@ for i=1:length(imageFilenames)
     labeLocs = find(regSizesImg>regSizeThreshWhite);
     regSizesImg = regSizesImg(regSizesImg>regSizeThreshWhite);
     
-  
+    % flip large bg region in a signal image 
+    
     % Calculate p-values for final regions using summed intensities
     disp('Calculating p-values for the final segmented regions') 
     

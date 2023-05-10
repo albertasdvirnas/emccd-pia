@@ -1,21 +1,25 @@
 % Simulate random beads images - full example. We simulate for both 0 gain
 % and for selected intensities
-function filenames = simulate_random_beads_full(zooms,gainF,gainName,particle_density,SNR,numFrames,outFold)
+function [filenames,chipPars,data] = simulate_random_beads_full(zooms,gainF,gainName,particle_density,SNR,numFrames,outFold,dims)
 
 if nargin < 1
     zooms = [20 100];
     gainF = [ 1 12 20 46];
     gainName = [0 50 100 300];
     particle_density = [1/400 1/800*5];
-
 end
 % chipParameters
 chipPars.adFactor = 36; % ADU
 chipPars.countOffset = 27; % offset (bias)
 chipPars.roNoise = 1.44; % noise std
 chipPars.numFrames = 50;
-chipPars.nRows = 512; % num rows
-chipPars.nCols = 512; % num columns
+if nargin < 8
+    chipPars.nRows = 512; % num rows
+    chipPars.nCols = 512; % num columns
+else
+    chipPars.nRows = dims(1); % num rows
+    chipPars.nCols = dims(2); % num columns
+end
 chipPars.maxRadius = 10;
 chipPars.lambdaBg = 38;
 chipPars.lambdaSigBase = 1;
@@ -36,6 +40,7 @@ end
     
 % filenamesAll = cell(1,length(gainF));
 filenames = cell(1,length(zooms));
+data = cell(1,length(zooms));
 
 for jj=1:length(zooms)
     chipPars.zoom = zooms(jj); % zoom
@@ -60,13 +65,13 @@ for jj=1:length(zooms)
     for j=1:length(gainF)
         chipPars.gain = gainF(j); % different gain settings
         chipPars.gainName = gainName(j);
-        filenames{jj}{j} = simulate_random_beads_images(chipPars, gtImage, placements, outFold);
+        [filenames{jj}{j},data{jj}{j} ]= simulate_random_beads_images(chipPars, gtImage, placements, outFold);
     end
 end
 
 end
  
-function filenames = simulate_random_beads_images(chipPars, gtImage, placements, outFold)
+function [filenames,data] = simulate_random_beads_images(chipPars, gtImage, placements, outFold)
 
     %
     % Script for generating an image with randomly positioned
@@ -91,9 +96,11 @@ function filenames = simulate_random_beads_images(chipPars, gtImage, placements,
     nCols = chipPars.nCols;              % number of columns in image
     
     numFrames = chipPars.numFrames;
-
-    subFold = strcat(num2str(chipPars.zoom),'x');
-    [~,~] = mkdir(outFold,subFold);
+    
+    if ~isempty(outFold)
+        subFold = strcat(num2str(chipPars.zoom),'x');
+        [~,~] = mkdir(outFold,subFold);
+    end
     
     filenames = cell(1,length(lampPower));
     for idxSNR = 1:length(lampPower)
@@ -104,18 +111,21 @@ function filenames = simulate_random_beads_images(chipPars, gtImage, placements,
         % photons image
         photonsPlaced = gtImage.*lambdaSig + lambdaBg;
         
-        filename = fullfile(outFold,subFold,strcat(['synth' num2str(chipPars.zoom) 'x_gain' num2str(chipPars.gainName) '_lamp' num2str(lambdaSig) '.tif'] ));
-        name = strcat(['synth' num2str(chipPars.zoom) 'x_gain' num2str(chipPars.gainName) '_lamp' num2str(lambdaSig)]);
-        
-        delete(filename);
+        if ~isempty(outFold)
+            filename = fullfile(outFold,subFold,strcat(['synth' num2str(chipPars.zoom) 'x_gain' num2str(chipPars.gainName) '_lamp' num2str(lambdaSig) '.tif'] ));
+            name = strcat(['synth' num2str(chipPars.zoom) 'x_gain' num2str(chipPars.gainName) '_lamp' num2str(lambdaSig)]);
+            delete(filename);
+            filenames{idxSNR} = filename;
+        end
+
         for jj=1:numFrames
             noisyImage = noise_model_emccd(photonsPlaced(:)', gain, adFactor, countOffset, roNoise);
         
             finalImage = reshape(noisyImage,nRows,nCols);
-        
-            imwrite(uint16(finalImage),filename,'WriteMode','append');
+            if ~isempty(outFold)
+                imwrite(uint16(finalImage),filename,'WriteMode','append');
+            end
         end
-        filenames{idxSNR} = filename;
         % Translate SNR to lambda for signal regions.
         %  Comment: 
         % The signal-to-noise ratio is defined:
@@ -142,12 +152,13 @@ function filenames = simulate_random_beads_images(chipPars, gtImage, placements,
         data.adFactor = adFactor;
         data.placements = placements;
         data.snr = SNR;
-        data.imageName = strcat(name,'.mat');
 
-%         titleSNR = round(100*SNR);
-%         saveFileName = sprintf('testImageEMCCDBeadsSNR%i',titleSNR);
-        save(fullfile(outFold,subFold,data.imageName),'data');
-        
+        if ~isempty(outFold)
+            data.imageName = strcat(name,'.mat');
+            %         titleSNR = round(100*SNR);
+            %         saveFileName = sprintf('testImageEMCCDBeadsSNR%i',titleSNR);
+            save(fullfile(outFold,subFold,data.imageName),'data');
+        end
     end
     
 

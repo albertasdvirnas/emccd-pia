@@ -57,7 +57,7 @@ for i = 1:length(filesC)
 %     file = filesC{cellfun(@(x) ~isempty(strfind(x,strcat(['_lamp' intensities{gk} '_']))),filesC,'UniformOutput',true)};
   
     mMat =  mean(double(A),3);
-    vMat =  var(double(A),1,3);
+    vMat =  var(double(A),0,3);
     expStruct.means{i} = mMat(:);
     expStruct.vars{i} = vMat(:);
 end

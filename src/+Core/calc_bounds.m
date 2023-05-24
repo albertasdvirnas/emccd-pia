@@ -1,4 +1,7 @@
-function [L,U,EX,STD] = calc_bounds(lambda,gain,adFactor,offset,roNoise)
+function [L,U,EX,STD] = calc_bounds(lambda,gain,adFactor,offset,roNoise,numstds)
+    if nargin < 6
+        numstds = 6;
+    end
     % reference
     r = gain/adFactor;
       
@@ -7,7 +10,6 @@ function [L,U,EX,STD] = calc_bounds(lambda,gain,adFactor,offset,roNoise)
 % 
 % if nargin < 7
     STD = sqrt(roNoise^2 + 2*lambda*r^2 + 1/12);  
-    numstds = 6;
     L = EX-numstds*STD; % mean - 6 std
     U = EX+numstds*STD;
 end

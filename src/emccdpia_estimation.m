@@ -1,6 +1,6 @@
 % fig2_calibration(chipPars)
 
-function [lambdaBg,intThreshBg,structRes] = emccdpia_estimation(chipPars, outFig, images, alphaStar, showfig)
+function [lambdaBg,intThreshBg,structRes] = emccdpia_estimation(chipPars, outFig, images, pValThresh, showfig)
 %   emccdpia_estimation - estimation of lambda_bg parameter value and intThreshBg
 %   threshold
 %   Args:
@@ -36,7 +36,7 @@ gain = chipPars.gain;
 adFactor = chipPars.adFactor;
 countOffset = chipPars.countOffset;
 roNoise = chipPars.roNoise;
-method = chipPars.method;
+% method = chipPars.method;
 
 % Maximum-likelihood estimation for lambda_bg estimation. Should we also
 % re-fit other params?
@@ -44,11 +44,16 @@ import Core.estimate_lambda;
 import Core.pdf_cdf_emccd;
 
 disp('Estimating lambda_bg.');
-[lambdaBg , intThreshBg,structRes] = ...
-    estimate_lambda(images.imAverage(:), gain, adFactor, countOffset, roNoise, alphaStar,method);
+[lambdaBg ,intThreshBg,structRes] = ...
+    estimate_lambda(images.imAverage(:), gain, adFactor, countOffset, roNoise);
 disp(' ')
 
-
+% Estimate statistics at p-value
+        % Binarize image
+import Core.estimate_statistics;
+[stats,binarizedImage] = estimate_statistics(images.imAverage,structRes,pValThresh);
+structRes.stats = stats;
+structRes.binarizedImage = binarizedImage;
 % Show image with contrast set to show noise
 if showfig
     figure
@@ -95,14 +100,15 @@ disp('Generating histogram over pixel intensities')
 % binEdges  =  generate_binedges(images.imAverage, ...
 %                   binWidthPerSigmaBg, lambdaBg,gain, adFactor, countOffset, roNoise );
 
-binEdges = [max(1,ceil(L)):floor(U)]-0.5; 
-histAll = histcounts(images.imAverage(:),binEdges);    
+% binEdges = [max(1,ceil(L)):floor(U)]-0.5; 
+% histAll = histcounts(images.imAverage(:),binEdges);   
+histAll = structRes.histAll(1:end-1); % last idx is all remaining bins
 disp(' ')   
 % hold on
 % Plot histogram
 nexttile     
-binPos = binEdges(1:end-1) + diff(binEdges)/2;
-[minVal , idx] = min(abs(binPos - structRes.Nthresh));
+binPos = 1:structRes.LU(2) + 0.5;
+[minVal , idx] = min(abs(binPos - intThreshBg));
 h1 = bar(binPos(1:idx),histAll(1:idx),1); 
 set(h1,'FaceColor',[0.4 0.6 0.9])
 set(h1,'EdgeColor','black')
@@ -118,12 +124,12 @@ hold on
 % Number of background pixels. For synthetic images we know true
 % import Core.p_values_emccd_sorted;
 % cdfFun =  @(x)  1-p_values_emccd_sorted(x,lambdaBg,gain,adFactor,countOffset,roNoise);
-uniqueVals = unique((images.imAverage(:)));
-stopIntensity = quantile(images.imAverage(:),0.25);
-cdfIntensities = uniqueVals(1):stopIntensity;
-stats.yval =    arrayfun(@(x) sum(images.imAverage(:)<=x), cdfIntensities);
-stats.xval =   structRes.cdf(cdfIntensities);
-nBg =  stats.xval'\stats.yval'; % nBg estimated as the slope of this
+% uniqueVals = unique((images.imAverage(:)));
+% stopIntensity = quantile(images.imAverage(:),0.25);
+% cdfIntensities = uniqueVals(1):stopIntensity;
+% stats.yval =    arrayfun(@(x) sum(images.imAverage(:)<=x), cdfIntensities);
+% stats.xval =   structRes.cdf(cdfIntensities);
+% nBg =  stats.xval'\stats.yval'; % nBg estimated as the slope of this
 % nBg
 
 % nPixels = numel(images.imAverage(:));
@@ -137,9 +143,9 @@ nBg =  stats.xval'\stats.yval'; % nBg estimated as the slope of this
 % based on the fit parameters
 % [pdfEmccdNew, cdfEmccdNew] = pdf_cdf_emccd(binPos,lambdaBg,gain,adFactor,countOffset,roNoise,L,U);
 % pdfEmccdNew = pdfEmccdNew;%/cdfEmccdNew(binPos==structRes.Nthresh);
-binCountsFit = nBg.*structRes.pdf;
+binCountsFit = stats.nBg.*structRes.pdf;
 % binPos = binEdges(1:end-1) + diff(binEdges)/2;
-plot(structRes.intensitiesU,binCountsFit(structRes.intensitiesU),'--','Color','black','LineWidth',2)
+plot(binCountsFit,'--','Color','black','LineWidth',2)
 
 % Set figure labels, etc
 xlabel('Image counts','Interpreter','latex')
@@ -150,10 +156,10 @@ title('(b)','Interpreter','latex')
 % axis equal
 pbaspect([1 0.8 0.8])
 legendEntry = strcat(['Fit, $\lambda_{bg} =  ' num2str(lambdaBg,2) ', N_{icr}^{bg}=' num2str(intThreshBg) '$']);
-lgnd = legend('Image counts, true background','Image counts, not true background',legendEntry,'Interpreter','latex')
+lgnd = legend('Image counts, true background','Image counts, not true background',legendEntry,'Interpreter','latex');
 lgnd.Layout.Tile = 'south';
 % print('C:\Users\Lenovo\postdoc\PAPERS\emccd-paper\draft\Figs\Fig4.eps','-depsc','-r300')
-print(outFig,'-depsc','-r300')
+% print(outFig,'-depsc','-r300');
 
 
 %  % Add error bars

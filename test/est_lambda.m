@@ -1,35 +1,30 @@
-function [lambdaBg, pci,L, U,binEdges,binPos,sortTruncI] = est_lambda(sortI,Nthresh,gain,adFactor,offset,roNoise,r)
-    opt = statset('MaxIter',200,'MaxFunEvals',400,'FunValCheck','on');
+function [lambdaBg, pci,pdf,cdf] = est_lambda(histAll,lamGuess,Nthresh,gain,adFactor,offset,roNoise, LU, opt)
+    %   est_lambda - estimating lambda_bg function
+    % 
+    %   Returns:
+    %       lambdaBg - lambda using MLE
+    %       pci - predicted confidence intervals
 
-    m = find(sortI>Nthresh,1,'First')-1; % find first element greater than Nthresh
-    if isempty(m)
-        m = length(sortI);
-    end
-    sortTruncI = sortI(1:m);
-    % Fit lambda
-    lamGuess = abs((sortTruncI(round(m/2)) - offset)/r);
-    
-    % Prep data for truncated fit
-    import Core.calc_bounds;
-    [L, U, EX, STD] = calc_bounds(lamGuess,gain,adFactor,offset,roNoise);
-    % Get bin edges
-    binEdges = [max(1,ceil(L)):1:floor(U)]-0.5; % bin edges shifted by half  
-    % histogram for intensities we can have this outside of the function
-    histAll = histcounts(sortTruncI,binEdges)';
-            
-    binPos = binEdges(1:end-1) + diff(binEdges)/2;
+
+    binPos = LU(1):Nthresh;
     import Core.log_likelihood_trunc_dist; 
     logL = @(lambda,data,cens,freq,trunc) log_likelihood_trunc_dist(lambda,data,cens,freq,trunc, ...
                        gain, adFactor, offset, roNoise);
             
-   
-%     logLValues = @(x) logL(x,data,cens,freq,trunc);
-    
     % use mle with negative loglikelihood (nloglf)
-%     tic
-    [lambdaBg, pci] = mle(binPos,'nloglf',logL,'start',lamGuess,'lowerBound',0,'Frequency',histAll,'TruncationBounds',[L U],'Options',opt);
-%     toc
-    
+    [lambdaBg, pci] = mle(binPos,'nloglf',logL,'start',lamGuess,'lowerBound',0,'Frequency',histAll(binPos),'TruncationBounds',LU,'Options',opt);
+
+% %     %   If plot sample values:
+%         logL2 = @(x) logL(x,binPos',[],histAll(binPos)',LU);
+%         vec = 30:0.1:45;
+%         figure,plot(vec,arrayfun(@(x) logL2(x),vec))
+%
+    cdf = nan(1,length(histAll)-1);
+    pdf = nan(1,length(histAll)-1);
+    import Core.pdf_cdf_emccd;
+
+    [pdf(LU(1):length(histAll)-1), cdf(LU(1):length(histAll)-1)] = pdf_cdf_emccd(LU(1):length(histAll)-1, lambdaBg, gain, adFactor, offset, roNoise, LU(1), LU(2));
+
 
 end
 

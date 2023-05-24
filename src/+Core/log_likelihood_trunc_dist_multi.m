@@ -1,5 +1,4 @@
-function [logL] = log_likelihood_trunc_dist(lambda, data, cens, freq, trunc,...
-                             gain, adFactor, offset, roNoise)
+function [logL] = log_likelihood_trunc_dist_multi(params, data, cens, freq, trunc)
     % Calculates the  log-likelihood for the truncated EMCCD-PIA distribution
     % 
     % Args: 
@@ -19,14 +18,24 @@ function [logL] = log_likelihood_trunc_dist(lambda, data, cens, freq, trunc,...
     % Here, I_trunc is the truncation intensity.
     %  
 
-    
+    lambda = params(1);
+    gain = params(2);
+    adFactor = params(3);
+    offset = params(4);
+    roNoise = params(5);
 %     binEdges
      % center position for each bin
 %     binPos = binEdges(1:end-1) + diff(binEdges)/2;
+    
+    % might want to calculate truncation points for each lambda guess
+    % separately for more accuracy!
+    % import Core.calc_bounds;
+    % [L, U, EX, STD] = calc_bounds(lamGuess, gainGuess, adFactorGuess, offsetGuess, roNoiseGuess);
+
    
     % possible issue if cdfEmccd(-1) 
     import Core.pdf_cdf_emccd;
-    [pdfEmccd, cdfEmccd] = pdf_cdf_emccd(data',lambda,gain, adFactor, offset, roNoise);%, trunc(1), trunc(2) % not using trunc will jumpy score
+    [pdfEmccd, cdfEmccd] = pdf_cdf_emccd(data',lambda,gain, adFactor, offset, roNoise, trunc(1), trunc(2));%
     logL = -sum(freq.*log(pdfEmccd)) + sum(freq)*log(cdfEmccd(end));
 
     % 

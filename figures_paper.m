@@ -19,23 +19,24 @@ calculate_moments('data\100x\*.tif');
 calculate_moments('data\20x\*.tif');
 
 % For real data
+limits = [100 200 260 360];
 foldRealData = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 beads high conc';
 calculate_moments(fullfile(foldRealData,'100x\*.tif'));
 foldRealData = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics';
 calculate_moments(fullfile(foldRealData,'20x\*.tif'));
 
-%% FigS1.eps - synthetic data.
+%% FigS0.eps - synthetic data.
 no_gain_mat = 'synth100x.mat';
 gain_mat = 'synth100x.mat';
 
 outFig = fullfile(figFold,'FigS0.eps');
 [chipParsS,chipParsSAll] = fig1_calibration(no_gain_mat, gain_mat,outFig);
 
-%% Fig1.eps
+%% FigS1.eps - real data
 no_gain_mat = '100x.mat';
 gain_mat = '20x.mat';
 
-outFig = fullfile(figFold,'Fig1.eps');
+outFig = fullfile(figFold,'FigS1.eps');
 [chipPars,chipParsAll] = fig1_calibration(no_gain_mat, gain_mat,outFig);
 
 %% FigS2.eps / on synthetic image
@@ -43,21 +44,35 @@ outFig = fullfile(figFold,'Fig1.eps');
 %% Fig2.eps - real experiment
 outFig2 = fullfile(figFold,'Fig2.eps');
 filename = 'data\100x_gain100_lamp50_018.tif';
+% filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 lungcancercells\DAPI\FOV2_DAPI_gainVariation\20x_gain100_lamp100_004.tif';
 % filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp10_022.tif';
 % filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp100_013.tif';
 % filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp100_013.tif';
 
 chipPars.inputImage = filename;
 [image] = Core.load_image(filename);
-alphaStar = 0.1; % FOR control
-chipParsSpec = Core.chippars_specific_gain(chipParsAll,3);
-chipParsSpec.pixelsize = 160;
-chipParsSpec.method = 'FDR';
-% chipParsSpec.method = 'FOR';
 
-% [lambdaBg,intThreshBg,stats] = fig2_calibration(chipPars,outFig2);
+T = 128;
+matrixBlocks = reshape(permute(reshape( double(image.imAverage),T,size( image.imAverage,1)/T,T,[]),[1,3,2,4]),T,T,[]);
+
+idx = 4;
+image2.imAverage = matrixBlocks(:,:,idx);
+
+
+% image.imAverage=image.imAverage(100:200,260:360);
+% image.imAverage=image.imAverage(100:200,350:420);
+% image.imAverage=image.imAverage(200:300,200:300);
+
+% image.imAverage=image.imAverage(150:250,300:400);
+
+% image.imAverage=image.imAverage(400:500,400:500);
+
+chipParsSpec = Core.chippars_specific_gain(chipParsAll,3);
+alphaStar = 0.01; % tnr control
+chipParsSpec.pixelsize = 160;
 tic
-[lambdaBg, intThreshBg, stats] = emccdpia_estimation(chipParsSpec,outFig2,image,alphaStar,1);
+[lambdaBg, intThreshBg, stats] = emccdpia_estimation(chipParsSpec,outFig2,image2,alphaStar,1);
+min(stats.chi2Score)
 toc
 %% Fig3.eps
     SNRVals = [3.00 , 3.50 , 4.00 , 4.50 , ...
@@ -65,12 +80,19 @@ toc
                9.00 , 9.50 , 10.00 ];  
 filenames = simulate_random_beads_full(100, 20, 100, 1/1000,SNRVals, 1, 'synthSingleFrameNew'); % zoom 100x
 
-outFig3 = 'output\Fig3.eps';
+outFig3 = 'output\Fig2.eps';
 chipParsCur = struct();
 chipParsCur.gain = mean(chipParsS.gainQ(3,2)); % based on gain in the image.. 50 100 300..
 chipParsCur.adFactor = mean(chipParsS.aduQ(2));
 chipParsCur.countOffset = mean(chipParsS.deltaQ(3,2));
 chipParsCur.roNoise = mean(chipParsS.sigmaQ(3,2));
+
+chipParsCur.pval = 0.01;
+% emccdpia_thresholding(filenames{1}{1}(6),SNRVals,chipParsCur,outFig3,chipParsCur.pval,1);
+
+[results,stats] = emccdpia_thresholding(filenames{1}{1}(1:end),SNRVals,chipParsCur,outFig3,chipParsCur.pval,0);
+
+
 % chipParsCur.gain  = mean(chipParsS.gain{3});
 % chipParsCur.countOffset  = mean(chipParsS.countOffset{3});
 % chipParsCur.roNoise  = mean(chipParsS.roNoise{3});

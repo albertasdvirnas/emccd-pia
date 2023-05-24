@@ -3,7 +3,7 @@
 % calculate_moments("C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 beads high conc\100x\*.tif");
 % calculate_moments('C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\*.tif');
 % calculate_moments('C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\20x\*.tif');
-function name= calculate_moments(dirf)
+function name= calculate_moments(dirf,calcBox)
     % function to calculate moments
 
     % three parameters: zoom (20x), gain (00,50,100,300) and lamp (00
@@ -12,6 +12,10 @@ if nargin < 1
     files = dir("C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 beads high conc\100x\*.tif");
 else
     files = dir(dirf);
+end
+
+if nargin < 2
+    calcBox = 0;
 end
 
 filesC = arrayfun(@(x) fullfile(files(x).folder,files(x).name),1:length(files),'un',false);
@@ -35,11 +39,11 @@ gain = [];
 gain.means = [];
 gain.vars = [];
 
-calcBox = 0;
+% calcBox = 0;
 
-if calcBox
-    limX = 100:400; % limit to the center,
-    limY = 100:400;
+if calcBox~=0
+    limX = calcBox(1):calcBox(2); % limit to the center,
+    limY = calcBox(3):calcBox(4);
 end
 
 for i = 1:length(filesC)

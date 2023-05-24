@@ -23,12 +23,12 @@ function [pdfEmccd,cdfEmccd] = pdf_cdf_emccd(intensities,lambda,gain,adFactor,of
     %
     %
     
-    % Hard-coded variables:
-%     pdfMin = 1E-14;   % smallest allow value for PDF 
-                      % (need to be > 0 to avoid errors in 
-                      % log-likelihood calculations)
-%     cdfDelta = 1E-14; % smallest allowed CDF value is cdfDelta,
-                      % and largest allowed CDF value is 1-cdfDelta.
+
+    import Core.calc_bounds;
+
+    if nargin < 7
+        [L, U, EX, STD] = calc_bounds(lambda, gain, adFactor, offset, roNoise);
+    end
       
      % Extract chip parameters
 %     gain = chipPars.gain;
@@ -38,7 +38,7 @@ function [pdfEmccd,cdfEmccd] = pdf_cdf_emccd(intensities,lambda,gain,adFactor,of
     r = gain/adFactor;
       
 %     % Analytic expressions for the mean and variance
-    EX = lambda*gain/adFactor+offset; 
+%     EX = lambda*gain/adFactor+offset; 
 %     STD = sqrt(roNoise^2 + 2*lambda*r^2 + 1/12);  
 %     
 %     % Analytic expression for the characteristic function 
@@ -101,10 +101,11 @@ function pdf = trapezoidal_pdf(y,dt,t,cf)
        
     pdf = dt/pi*(1/2 +cos(t*y)'*(real(cf).*w)+sin(t*y)'*(imag(cf).*w));
 end
-%
-function cdf = trapezoidal_cdf(y,dt,t,cf,ex)
-    w = ones(length(t),1);
-    w(end)=1/2; % last coef is 1/2
-    cdf = 1/2 - dt/pi*(1/2*(ex-y') +cos(t*y)'*(imag(cf./t).*w)-sin(t*y)'*(real(cf./t).*w));
-end
+
+% Not needed to calculate since we have PMF
+% function cdf = trapezoidal_cdf(y,dt,t,cf,ex)
+%     w = ones(length(t),1);
+%     w(end)=1/2; % last coef is 1/2
+%     cdf = 1/2 - dt/pi*(1/2*(ex-y') +cos(t*y)'*(imag(cf./t).*w)-sin(t*y)'*(real(cf./t).*w));
+% end
 

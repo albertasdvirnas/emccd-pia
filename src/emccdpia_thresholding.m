@@ -95,7 +95,7 @@ function plot_binarization_evaluation_results_beads(outFig3,results)
      % Sort according to SNR values
     [snr,idx] = sort(snr);
 
-%     fS = 12;
+%%     fS = 12;
     figure
     tiledlayout(3,2,'TileSpacing','tight');
  
@@ -104,13 +104,15 @@ function plot_binarization_evaluation_results_beads(outFig3,results)
     hold on
     y = results.lambdaBgGroundTruth.*ones(1,length(snr));
     plot(snr,y,'black--','linewidth',2)
-    ylim([37 41])
-    text(4,37.5,'Ground-truth')
-    text(4,39.5,'Estimated')
+    ylim([min([results.lambdaBgEst y])-0.1 max([y results.lambdaBgEst])+0.1])
+%     text(4,37.5,'Ground-truth')
+%     text(4,39.5,'Estimated')
+    lgnd2 = legend({'Estimated','Ground-truth'})
+    lgnd2.Layout.Tile = 'north';
 
     hold off
     ylabel('\lambda_{bg}')
-    title('a)','Interpreter','latex')
+    title('a) Estimated $\lambda_{bg}$ vs. GT','Interpreter','latex')
   
     nexttile
     plot(snr,results.fprGT,'-d','linewidth',2);
@@ -125,7 +127,7 @@ function plot_binarization_evaluation_results_beads(outFig3,results)
     fig = gcf;
     fig.PaperUnits = 'inches';
 %     fig.PaperPosition = [0 0 4 2.5];
-    title('b) FPR')
+    title('b) FPR','Interpreter','latex')
 %     set(gca,'Fontsize',15)
 
     % Plot FNR, pixelbased
@@ -142,7 +144,7 @@ function plot_binarization_evaluation_results_beads(outFig3,results)
     fig = gcf;
     fig.PaperUnits = 'inches';
 %     fig.PaperPosition = [0 0 4 2.5];
-    title('c) FNR')
+    title('c) FNR','Interpreter','latex')
     xlabel('SNR','Interpreter','latex')
 
 
@@ -163,7 +165,7 @@ function plot_binarization_evaluation_results_beads(outFig3,results)
     ylabel('1-ACC','Interpreter','latex')
 
 %     fig.PaperPosition = [0 0 4 2.5];
-    title('d) 1-ACC')
+    title('d) 1-ACC','Interpreter','latex')
 
       nexttile
     plot(snr,results.fdrGT,'-d','linewidth',2);
@@ -172,11 +174,11 @@ function plot_binarization_evaluation_results_beads(outFig3,results)
     plot(snr,results.fdrEst,'.-','linewidth',2)
     hold off
     xlim([1 10])
-    ylabel('FNR','Interpreter','latex')
+    ylabel('FDR','Interpreter','latex')
     fig = gcf;
     fig.PaperUnits = 'inches';
 %     fig.PaperPosition = [0 0 4 2.5];
-    title('e) FDR')
+    title('e) FDR','Interpreter','latex')
     xlabel('SNR','Interpreter','latex')
 
     nexttile
@@ -190,7 +192,7 @@ function plot_binarization_evaluation_results_beads(outFig3,results)
     fig = gcf;
     fig.PaperUnits = 'inches';
 %     fig.PaperPosition = [0 0 4 2.5];
-    title('f) FOR')
+    title('f) FOR','Interpreter','latex')
     xlabel('SNR','Interpreter','latex')
 
     print(outFig3,'-depsc','-r300')

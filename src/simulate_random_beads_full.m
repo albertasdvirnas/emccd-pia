@@ -1,6 +1,6 @@
 % Simulate random beads images - full example. We simulate for both 0 gain
 % and for selected intensities
-function [filenames,chipPars,data] = simulate_random_beads_full(zooms,gainF,gainName,particle_density,SNR,numFrames,outFold,dims)
+function [filenames,chipPars,data] = simulate_random_beads_full(zooms,gainF,gainName,particle_density,SNR,numFrames,outFold,dims,gtImage, placements)
 
 if nargin < 1
     zooms = [20 100];
@@ -60,7 +60,9 @@ for jj=1:length(zooms)
 %     if gainF == 1
 %         gtImage = ones(nRows,nCols);
 %     else
-    [gtImage, placements] = fixed_beads(particleDensity ,nRows, nCols, circRadius);
+    if nargin < 9
+        [gtImage, placements] = fixed_beads(particleDensity ,nRows, nCols, circRadius);
+    end
 %     end
     for j=1:length(gainF)
         chipPars.gain = gainF(j); % different gain settings

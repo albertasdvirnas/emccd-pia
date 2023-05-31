@@ -6,9 +6,19 @@
 
 % Move panel B to figure 2
 
-outFig2 = fullfile(figFold,'Fig1.eps');
-% filename = 'data\100x_gain100_lamp50_018.tif';
-filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 lungcancercells\DAPI\FOV2_DAPI_gainVariation\20x_gain100_lamp100_004.tif';
+s = 2;
+if s == 1
+    outFigS ='output\FigS5.eps'
+    outFig2 = fullfile(figFold,'Fig1.eps');
+    filename = 'data\100x_gain100_lamp50_018.tif';
+    idx1 = 4;
+
+else
+    filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 lungcancercells\DAPI\FOV2_DAPI_gainVariation\20x_gain100_lamp100_004.tif';
+    outFigS ='output\FigS6.eps'
+    outFig2 = fullfile(figFold,'FigS7.eps');
+    idx1=15;
+end
 % filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp10_022.tif';
 % filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp100_013.tif';
 % filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp100_013.tif';
@@ -42,30 +52,34 @@ for idx = 1:size(matrixBlocks,3);
     toc
 end
 
-figure,nexttile;imagesc(reshape(scores,[sqrt(N) sqrt(N)])');colorbar;colormap gray
-title(['$\chi^2$ scores for blocks of size = ', num2str(T)],'Interpreter','latex')
+f = figure,
 nexttile
-imagesc(reshape(lambdaPars,[sqrt(N) sqrt(N)])');colorbar;colormap gray
-title(['Estimate of $\lambda_{bg}$],'Interpreter','latex')
-
-nexttile
-imagesc(reshape(intthreshPars,[sqrt(N) sqrt(N)])');colorbar;colormap gray
-title(['$N_{thresh}$ scores'],'Interpreter','latex')
+imagesc(reshape(intthreshPars,[sqrt(N) sqrt(N)]));colorbar;colormap gray
+title(['a) $N_{icr}^{bg}$ scores'],'Interpreter','latex')
 
 
 nexttile
-imagesc(reshape(cellfun(@(x) x.passthresh,statsAll),[sqrt(N) sqrt(N)])');colorbar;colormap gray
-title(['Scores passing p-val thresh'],'Interpreter','latex')
+imagesc(reshape(lambdaPars,[sqrt(N) sqrt(N)]));colorbar;colormap gray
+title(['b) Estimates of $\lambda_{bg}$'],'Interpreter','latex')
+
+nexttile;imagesc(reshape(scores,[sqrt(N) sqrt(N)]));colorbar;colormap gray
+title(['c) $\chi^2$ scores'],'Interpreter','latex')
+
+
+
+nexttile
+imagesc(logical(reshape(cellfun(@(x) x.passthresh,statsAll),[sqrt(N) sqrt(N)])));colorbar('YTick',[0 1]);%colormap gray
+title('d) Passed the goodness-of-fit test','Interpreter','latex')
+print(outFigS,'-depsc','-r300');
 
 %% REDO FIG2 with tiles
 
 %
 % 
-idx = 15;
 
     figure
-    tiledlayout(2,2,'TileSpacing','compact','Padding','compact')
-    nexttile([2 1])
+    tiledlayout(1,2,'TileSpacing','compact','Padding','compact')
+    nexttile
     pixelsize = 160;
 
     sampIm = mat2gray(image.imAverage);
@@ -77,11 +91,12 @@ idx = 15;
 %     out = imtile(matrixBlocksJ,'thumbnailsize',[64 64]);
 %     figure,imshow(out)
 
-    IM3 = padarray(matrixBlocksJ,[2 2],1,'both');
-    out = imtile(pagetranspose(IM3),'thumbnailsize',[64 64]);
+    IM3 = padarray(matrixBlocksJ,[2 2],nan,'both');
+    out = imtile(pagetranspose(IM3),'thumbnailsize',[64 64],'BorderSize', 2, 'BackgroundColor', 'cyan');
 %     figure,imshow(out')
 
-    imshow(out','InitialMagnification','fit');
+    imshow(pagetranspose(out),'InitialMagnification','fit');
+    colormap winter
     %imshow(images.imAverage/max(images.imAverage(:)))
     hold on    
     % scale bar (ten microns in number of pixels)
@@ -92,18 +107,18 @@ idx = 15;
     text(0,0.05,'10 microns','Fontsize',10,'Color',[1 1 1],'Units','normalized')
     title('(a)','Interpreter','latex')
 
-    nexttile
-    outL = imtile(lambdaPars);
-%     figure,imshow(outL)
-    imshow(reshape(lambdaPars,[sqrt(N) sqrt(N)]),[min(lambdaPars) max(lambdaPars)]);colorbar;colormap gray
-title('(b) Estimates of $\lambda_{bg}$' ,'Interpreter','latex')
-
+%     nexttile
+%     outL = imtile(lambdaPars);
+% %     figure,imshow(outL)
+%     imshow(reshape(lambdaPars,[sqrt(N) sqrt(N)]),[min(lambdaPars) max(lambdaPars)]);colorbar;colormap gray
+% title('(b) Estimates of $\lambda_{bg}$' ,'Interpreter','latex')
+% 
 
 % Plot single tile
-structRes = statsAll{idx};
-intThreshBg =   intthreshPars(idx);
-histAll = statsAll{idx}.histAll;
-stats = statsAll{idx}.stats;
+structRes = statsAll{idx1};
+intThreshBg =   intthreshPars(idx1);
+histAll = statsAll{idx1}.histAll;
+stats = statsAll{idx1}.stats;
     nexttile    
 binPos = 1:structRes.LU(2) + 0.5;
 [minVal , idx] = min(abs(binPos - intThreshBg));
@@ -124,8 +139,8 @@ xlabel('Image counts','Interpreter','latex')
 ylabel('Histogram counts','Interpreter','latex')
 % set(gca,'Fontsize',15)
 % axis([30 80 0 46000])
-[a,b] = ind2sub([8 8],15)
-title(['(c) Fit for tile \{',num2str(a),',',num2str(b) , '\}'],'Interpreter','latex')
+[a,b] = ind2sub([8 8],idx1)
+title(['(b) Fit for tile \{',num2str(a),',',num2str(b) , '\}'],'Interpreter','latex')
 % axis equal
 pbaspect([1 0.8 0.8])
 legendEntry = strcat(['Fit, $\lambda_{bg} =  ' num2str(lambdaBg,2) ', N_{icr}^{bg}=' num2str(intThreshBg) '$']);

@@ -1,5 +1,5 @@
 function [lambdaBg,intThreshBg,structRes ] = ...
-                    estimate_lambda(intensities, gain, adFactor, countOffset, roNoise)
+                    estimate_lambda(intensities, gain, adFactor, countOffset, roNoise,pvalThresh)
     % estimate_lambda 
     %
     % determines lambdaBg (Poisson parameter for background)
@@ -71,7 +71,7 @@ function [lambdaBg,intThreshBg,structRes ] = ...
     structRes.histAll = histAll;
 
     %% CHI^2 test
-    nQuantiles = 5; % number quantiles
+    nQuantiles = 3; % number quantiles
     intVals = lowestIntThresh:structRes.LU(2); 
     % calculate chi^2 test to check which bin sizes are ok
     lambdaBgMLE = nan(1,max(intVals));
@@ -83,6 +83,7 @@ function [lambdaBg,intThreshBg,structRes ] = ...
         [lambdaBgMLE(Nthresh), pci, pdf, cdf] = est_lambda(histAll,lamGuess, Nthresh, gain, adFactor, countOffset, roNoise,structRes.LU,opt);
 %         [chi2Score(Nthresh)] = chi2_calc(histAll, pdf, cdf, Nthresh);
         [chi2Score(Nthresh)] = chi2_calc(histAll, pdf, cdf, Nthresh,structRes.LU, nQuantiles);
+%         [chi2Score(Nthresh)] = chi2_calc(histAll, pdf, cdf, Nthresh,structRes.LU);
 
         distVals{Nthresh}.pdf = pdf;
         distVals{Nthresh}.cdf = cdf;
@@ -99,10 +100,11 @@ pval = chi2pdf(chi2Score,nQuantiles-2 );%/length(intVals);
 
 
 
-    pvalThresh = pval > 0.01;
+    pvalThresh = pval > pvalThresh;
     intThreshBg = find(pvalThresh==1,1,'last');
     if isempty(intThreshBg)
         [maxPval,intThreshBg] = min(chi2Score);
+%         intThreshBg = find(~isnan(chi2Score),1,'first'); % not nan
         structRes.passthresh = 0;
         warning('pvalues too low');
     else

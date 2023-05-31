@@ -1,4 +1,4 @@
-function [] = fig4_segmentation(imageFilenames, chipParsCur,outFig)
+function [] = fig4_segmentation(imageFilenames, chipParsCur,outFig,pValThresh,pValThreshBinarization)
 
 if nargin < 1
     imageFilenames = {'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp100_013.tif', 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 lungcancercells\DAPI\FOV1_DAPI\20x_gain300_lamp100_001.tif'};
@@ -11,10 +11,12 @@ end
     axtile{1}= nexttile(t);
     axtile{2} = nexttile(t);
 % Input PARAMETERS 
-% binWidthPerSigmaBg = 0.3;    % bin width / sigma for background 
-qStar = 0.5;                 % parameter which controls the 
-                             % false detection rate (FDR)
-pValThreshBinarization = 1E-2;
+if nargin < 4
+pValThresh = 0.01; % for chi2
+pValThreshBinarization = 1E-2; % for binarization
+end
+T = 64; %  tile size
+
 allowedGapLength = 1;        % allowed gap length. In sorted list of 
                              % region sizes this, this gives us how large gaps, 
                              % starting at region size = 1, we allow for the 
@@ -74,17 +76,47 @@ for i=1:length(imageFilenames)
 
     chipPars = chipParsCur{i};
 
-    [lambdaBg,intThreshBg] = fig2_calibration(chipPars,outFig{i,2},images,qStar,1);
-%
+    matrixBlocks = reshape(permute(reshape( double(images.imAverage),T,size( images.imAverage,1)/T,T,[]),[1,3,2,4]),T,T,[]);
+    
+    N = size(matrixBlocks,3);
+    scores = nan(1,size(matrixBlocks,3));
+    lambdaPars = nan(1,size(matrixBlocks,3));
+    intthreshPars = nan(1,size(matrixBlocks,3));
+    
+    statsAll = cell(1,size(matrixBlocks,3));
+    for idx = 1:size(matrixBlocks,3);
+        image2.imAverage = matrixBlocks(:,:,idx);
+    
+        tic
+        [lambdaBg, intThreshBg, stats] = emccdpia_estimation(chipPars,[],image2,pValThresh,0);
+        scores(idx) = min(stats.chi2Score);
+        lambdaPars(idx) = lambdaBg;
+        intthreshPars(idx) = intThreshBg;
+        statsAll{idx} = stats;
+    
+        toc
+    end
     gain = chipPars.gain;
     adFactor = chipPars.adFactor;
     roNoise = chipPars.roNoise;
     offset = chipPars.countOffset;
 
+    binarizedImageT = zeros(size(matrixBlocks));
+    disp('Binarizing image');
+    for j=1:size(binarizedImageT,3)
+        [binarizedImageT(:,:,j) , intThreshBlackWhite(j) ] = binarize_image_pval_thresh2(...
+            matrixBlocks(:,:,j), pValThreshBinarization , lambdaPars(j) , gain, adFactor, offset, roNoise);
+    end
+    %
+%     binarizedImage = reshape(permute(reshape( double(binarizedImageT),T,size( binarizedImageT,1)/T,T,[]),[1,3,2,4]),T,T,[]);
+     binarizedImage = imtile(pagetranspose(binarizedImageT),'thumbnailsize',[T T])';
+%     [lambdaBg,intThreshBg] = fig2_calibration(chipPars,outFig{i,2},images,qStar,1);
+%
+
         
-     disp('Binarizing image');
-        [binarizedImage , intThreshBlackWhite ] = binarize_image_pval_thresh2(...
-            images.imAverage, pValThreshBinarization ,lambdaBg , gain, adFactor, offset, roNoise);
+%      disp('Binarizing image');
+%         [binarizedImage , intThreshBlackWhite ] = binarize_image_pval_thresh2(...
+%             images.imAverage, pValThreshBinarization ,lambdaBg , gain, adFactor, offset, roNoise);
 %%
   
     % Find regions in the binarized image
@@ -92,12 +124,22 @@ for i=1:length(imageFilenames)
 
     % w_white
     [bIm, labelIm] = bwboundaries(binarizedImage, 'noholes','CONN',4);
+    labelFilled = imfill(labelIm,'holes');
+
     [regSizeThreshWhite, regSizesImg] = find_reg_thresh(bIm,labelIm,allowedGapLength);
     
     % w_black
-    [bBg, labelBg] = bwboundaries(1-binarizedImage, 'noholes','CONN',4);
+    flipIm = 1-binarizedImage;
+%     flipIm(:, [1 end]) = 0;
+%     flipIm([1 end],:) = 0;
+
+    [bBg, labelBg] = bwboundaries(flipIm, 'noholes','CONN',4);
+%     bBg{1} = []; % ignore first component (likely only background)
     [regSizeThreshBg, regSizesBg] = find_reg_thresh(bBg,labelBg,allowedGapLength);
 
+    bgFilled  = imfill(labelBg,'holes');
+
+    regSizesBg(1) = 0;
     disp(['Region size threshold for black regions  = ',num2str(regSizeThreshBg)]);
     disp(['Region size threshold for white regions  = ',num2str(regSizeThreshWhite)]);  
     segOutput.regSizeThreshBlack = regSizeThreshBg;
@@ -106,9 +148,12 @@ for i=1:length(imageFilenames)
     
     % filter out all regions which has size smaller than
     bIm = bIm(regSizesImg>regSizeThreshWhite);
-    bBg = bBg(regSizesBg>regSizeThreshBg);
     labeLocs = find(regSizesImg>regSizeThreshWhite);
-    regSizesImg = regSizesImg(regSizesImg>regSizeThreshWhite);
+
+
+    % maybe discard first one as artefact
+    bBg = bBg(regSizesBg>regSizeThreshBg);
+    regSizesLoc = find(regSizesBg>regSizeThreshBg);
     
     % flip large bg region in a signal image 
     
@@ -118,8 +163,19 @@ for i=1:length(imageFilenames)
     nReg = length(bIm);
     summedInt = zeros(1,nReg);
     cdfSummedInt =  zeros(1,nReg);
+
+    img = zeros(size(images.imAverage));
     for regIdx=1:nReg
-        pixelvals = images.imAverage(labelIm==labeLocs(regIdx));
+        img(labelFilled==labeLocs(regIdx)) = labeLocs(regIdx);
+    end
+
+    for regIdx=1:length(regSizesLoc)
+        img(bgFilled==regSizesLoc(regIdx))= 0;
+    end
+% end
+
+    for regIdx=1:nReg
+        pixelvals = images.imAverage(img==labeLocs(regIdx));
         summedInt(regIdx) = sum(pixelvals);
 %         summedInt(regIdx) = sum(arrayfun(@(x) images.imAverage(bIm{regIdx}(x,1),bIm{regIdx}(x,2)),1:length(bIm{regIdx})));
 %         M = regSizesImg(regIdx);
@@ -144,8 +200,10 @@ for i=1:length(imageFilenames)
 %     ax1=nexttile;
  %     imshow(J,'InitialMagnification','fit');
     axes(axtile{i})
+   plot_res(images,img,colorValU,lineWidthBoundaries)
+
 %     figure
-   plot_out(images,bIm,nReg,colorValU,lineWidthBoundaries)
+%    plot_out(images,bIm,nReg,colorValU,lineWidthBoundaries)
    title(titles{i},'Interpreter','latex')
         
 end
@@ -153,6 +211,43 @@ end
     print(ff,outFig{1,1},'-depsc','-r300')
 
 end
+
+
+
+function plot_res(images,img,colorValU,lineWidthBoundaries)
+   sampIm = mat2gray(images.imAverage);
+    minInt = min(sampIm(:));
+    medInt = median(sampIm(:));
+    maxInt = max(sampIm(:));
+    J = imadjust(sampIm,[minInt min(1,4*medInt)]);
+%     nexttile
+%         clf
+% %         ax1 = axes;
+% figure
+        imshowpair(J,img>0,'ColorChannels','green-magenta');
+%         parMap = parula;
+% %         ax1.Visible = 'off';
+% %         ax1.XTick = [];
+% %         ax1.YTick = [];
+%         hold on    
+%         imshow(img==1)
+% 
+%         % Plot boundaries contours
+%         parMap = parula;
+%          for regIdx = 1:nReg  % loop over regions
+%              boundariesReg = boundariesCellArray{regIdx};
+%              colorVal = 1 + floor(colorValU(regIdx)*255); % in the range [1,256]
+%              lineColor = parMap(colorVal,:);    
+%                  plot(boundariesReg(:,2),boundariesReg(:,1),'LineWidth',lineWidthBoundaries,'Color',lineColor)
+%         end   
+    
+
+
+end
+
+
+
+
 
 function plot_out(images,boundariesCellArray,nReg,colorValU,lineWidthBoundaries)
    sampIm = mat2gray(images.imAverage);
@@ -182,3 +277,5 @@ function plot_out(images,boundariesCellArray,nReg,colorValU,lineWidthBoundaries)
 
 
 end
+
+

@@ -20,7 +20,8 @@ stats.intThresh = intThresh;
 binarizedImage = imbinarize(im,intThresh);
 
 % estimate nbg
-cdfIntensities = structRes.LU:structRes.lowestIntThresh;
+% cdfIntensities = structRes.LU:structRes.lowestIntThresh;
+cdfIntensities = structRes.LU:intThresh;
 
 stats.yval =    arrayfun(@(x) sum(structRes.histAll(1:x)), cdfIntensities);
 stats.xval =    arrayfun(@(x) structRes.cdf(x), cdfIntensities);

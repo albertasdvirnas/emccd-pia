@@ -45,7 +45,7 @@ import Core.pdf_cdf_emccd;
 
 disp('Estimating lambda_bg.');
 [lambdaBg ,intThreshBg,structRes] = ...
-    estimate_lambda(images.imAverage(:), gain, adFactor, countOffset, roNoise);
+    estimate_lambda(images.imAverage(:), gain, adFactor, countOffset, roNoise,pValThresh);
 disp(' ')
 
 % Estimate statistics at p-value

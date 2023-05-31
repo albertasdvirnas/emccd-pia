@@ -4,14 +4,15 @@
 % 2) Estimate lambda based on Nthresh
 % 3) Calculate pdf/cdf for intensities in range
 % 4) Create bins for 
-dims = 5*[128 128];
+dims = [64 64];
 numRuns = 100;
     %% Chi square dist generation
 %     truncationIdx = 1;      % truncation is done at truncationIdx*100 % of the data  
 %     nRandNumbersBg = 1E3;     % number of random numbers generated
 %     nRuns = 100;                % number of simulation runs
     nQuantiles = 5;          % number of quantiles used for binning
-    Nthresh = 70;
+    Nthresh = 60;
+    import Core.chi2_calc;
 
 chi2Score = zeros(1,numRuns);
 for runIdx = 1:numRuns;
@@ -28,11 +29,44 @@ for runIdx = 1:numRuns;
     
     %% Estimate lambdaBg
     intensities = data{1}{1}.image;
-    sortI = sort(data{1}{1}.image,'ascend');
+%     sortI = sort(data{1}{1}.image,'ascend');
+    %%
+    opt = statset('MaxIter',200,'MaxFunEvals',400,'FunValCheck','on');
 
-    [lambdaBg, pci, L, U, binEdges, binPos,sortTruncI] = est_lambda(sortI, Nthresh, gain, adFactor, offset, roNoise, r);
+
+    lowestIntThresh = ceil(quantile(intensities,0.25)); 
+    structRes.lowestIntThresh = lowestIntThresh;
+    %
+    sortI = sort(intensities);
+    S = numel(sortI);
+%     Nthresh = sortI(round(S/2));
+
+%     m = find(sortI>Nthresh,1,'First')-1; 
+%     sortTruncI = sortI(1:m);
+    % Fit lambda based on data
+    lamGuess = abs((sortI(round(end/2)) - offset)/(gain/adFactor));
+
+    % Prep data for truncated fit
+    import Core.calc_bounds;
+    [L, U, EX, STD] = calc_bounds(lamGuess, gain, adFactor, offset, roNoise, 6);
+    structRes.LU = [max(1,ceil(L)) floor(U)];
+
+
+    % Get bin edges
+    binCenters = [max(1,ceil(L)):1:floor(U)+1 inf]; % bin edges shifted by half  
+
+    % histogram for intensities. Calculated only once!
+    histAll = zeros(1,binCenters(end-1));
+    histAll(binCenters(1:end-1)) = histcounts(sortI,binCenters-0.5)';
+    
+    %%
+    [lambdaBg, pci, pdf, cdf] = est_lambda(histAll,lamGuess, Nthresh, gain, adFactor, offset, roNoise,structRes.LU,opt);
+
+%     [lambdaBg, pci, L, U, binEdges, binPos,sortTruncI] = est_lambda(sortI, Nthresh, gain, adFactor, offset, roNoise, r);
 %     lambdaBg
-        [ chi2Score(runIdx)] = chi2_fun(sortTruncI,Nthresh,L,U,lambdaBg,gain,adFactor,offset,roNoise,nQuantiles);
+        chi2Score(runIdx) = chi2_calc(histAll, pdf, cdf, Nthresh,structRes.LU, nQuantiles);
+
+%         [ chi2Score(runIdx)] = chi2_fun(sortTruncI,Nthresh,L,U,lambdaBg,gain,adFactor,offset,roNoise,nQuantiles);
 
     
 %     % intensities we integrate over (thresh can't be outside of these

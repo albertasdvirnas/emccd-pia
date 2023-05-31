@@ -33,8 +33,8 @@ lambdaBg = nan(1,length(intVals));
 chi2Score = nan(1,length(intVals));
 for Nthresh = intVals;
   
-    try
-        [lambdaBg(Nthresh), pci, L, U, binEdges, binPos,sortTruncI] = est_lambda(sortI, Nthresh, gain, adFactor, offset, roNoise, r);
+    try %histAll,lamGuess,Nthresh,gain,adFactor,offset,roNoise, LU, opt
+        [lambdaBg(Nthresh), pci, L, U] = est_lambda(sortI, Nthresh, gain, adFactor, offset, roNoise, r);
         [chi2Score(Nthresh)] = chi2_fun(sortTruncI,Nthresh,L,U,lambdaBg(Nthresh),gain,adFactor,offset,roNoise,nQuantiles);
 
     catch

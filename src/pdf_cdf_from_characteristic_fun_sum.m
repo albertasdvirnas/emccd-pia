@@ -81,7 +81,7 @@ end
         % y is the grid for our pdf (from L to U)
     y = intensities;
     
-    
+    % TODO: change to PMF
     % calculate main integral
     pdfEmccd = trapezoidal_pdf(y,dt,t,cf);
     cdfEmccd = trapezoidal_cdf(y,dt,t,cf,EX);

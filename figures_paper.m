@@ -41,7 +41,9 @@ outFig = fullfile(figFold,'FigS1.eps');
 
 %% FigS2.eps / on synthetic image
 
-%% Fig2.eps - real experiment
+%% Fig1.eps - real experiment
+figures_paper_fig2 %- Fig1 in the paper
+% individuak block
 outFig2 = fullfile(figFold,'Fig2.eps');
 filename = 'data\100x_gain100_lamp50_018.tif';
 % filename = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 lungcancercells\DAPI\FOV2_DAPI_gainVariation\20x_gain100_lamp100_004.tif';
@@ -55,7 +57,7 @@ chipPars.inputImage = filename;
 T = 128;
 matrixBlocks = reshape(permute(reshape( double(image.imAverage),T,size( image.imAverage,1)/T,T,[]),[1,3,2,4]),T,T,[]);
 
-idx = 4;
+idx = 12;
 image2.imAverage = matrixBlocks(:,:,idx);
 
 
@@ -74,16 +76,18 @@ tic
 [lambdaBg, intThreshBg, stats] = emccdpia_estimation(chipParsSpec,outFig2,image2,alphaStar,1);
 min(stats.chi2Score)
 toc
-%% Fig3.eps
+%% Fig2.eps
 SNRVals =3:0.5:10;  
 filenames = simulate_random_beads_full(100, 20, 100, 1/1000,SNRVals, 1, 'synthSingleFrameNew'); % zoom 100x
 
 outFig3 = 'output\Fig2.eps';
-chipParsCur = struct();
-chipParsCur.gain = mean(chipParsS.gainQ(3,2)); % based on gain in the image.. 50 100 300..
-chipParsCur.adFactor = mean(chipParsS.aduQ(2));
-chipParsCur.countOffset = mean(chipParsS.deltaQ(3,2));
-chipParsCur.roNoise = mean(chipParsS.sigmaQ(3,2));
+% chipParsCur = struct();
+% chipParsCur.gain = mean(chipParsS.gainQ(3,2)); % based on gain in the image.. 50 100 300..
+% chipParsCur.adFactor = mean(chipParsS.aduQ(2));
+% chipParsCur.countOffset = mean(chipParsS.deltaQ(3,2));
+% chipParsCur.roNoise = mean(chipParsS.sigmaQ(3,2));
+chipParsCur = Core.chippars_specific_gain(chipParsSAll,3);
+
 
 chipParsCur.pval = 0.01;
 % emccdpia_thresholding(filenames{1}{1}(6),SNRVals,chipParsCur,outFig3,chipParsCur.pval,1);
@@ -98,29 +102,27 @@ chipParsCur.pval = 0.01;
 %     
 % chipParsCur.method = 'FOR';
 % chipParsCur.alphaStar = 0.05;
- [results,stats] = emccdpia_thresholding(filenames{1}{1}(5),SNRVals,chipParsCur,outFig3,chipParsCur.pval,1);
+%  [results,stats] = emccdpia_thresholding(filenames{1}{1}(5),SNRVals,chipParsCur,outFig3,chipParsCur.pval,1);
 
-chipParsCur.method = 'FDR';
-chipParsCur.alphaStar = 0.9;
-emccdpia_thresholding(filenames{1}{1}(1:end),SNRVals,chipParsCur,outFig3,chipParsCur.alphaStar,1);
-
-
-chipParsCur.gain  = 20;
-chipParsCur.countOffset  = 27;
-chipParsCur.roNoise  = 1.44;
-chipParsCur.adFactor  = 36;
- [results,stats] = emccdpia_thresholding(filenames{1}{1}(1:end),SNRVals,chipParsCur,outFig3,0.1,0);
- [results,stats] = emccdpia_thresholding(filenames{1}{1}(1),SNRVals,chipParsCur,outFig3,chipParsCur.pval,1);
+% chipParsCur.method = 'FDR';
+% chipParsCur.alphaStar = 0.9;
+% emccdpia_thresholding(filenames{1}{1}(1:end),SNRVals,chipParsCur,outFig3,chipParsCur.alphaStar,1);
+% 
+% 
+% chipParsCur.gain  = 20;
+% chipParsCur.countOffset  = 27;
+% chipParsCur.roNoise  = 1.44;
+% chipParsCur.adFactor  = 36;
+%  [results,stats] = emccdpia_thresholding(filenames{1}{1}(1:end),SNRVals,chipParsCur,outFig3,0.1,0);
+%  [results,stats] = emccdpia_thresholding(filenames{1}{1}(1),SNRVals,chipParsCur,outFig3,chipParsCur.pval,1);
 
 % fig3_probabilitstic_segmentation(filenames{1}{1}(1),SNRVals,chipParsCur,outFig3)
 
 % fig3_probabilitstic_segmentation(filenames{1}{1}([1 2]),SNRVals,chipParsCur,outFig3)
 % [lambdaBg,intThreshBg] = fig2_calibration(chipPars,outFig2);
 
-%% figS3.eps 
-%  FOR and FDR as a function of q^*
 
-%% Fig4.eps
+%% Fig3.eps
 
 % for the beads
 % imagefiles = {'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp100_013.tif', 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 lungcancercells\DAPI\FOV1_DAPI\20x_gain300_lamp100_001.tif'};
@@ -130,11 +132,11 @@ imagefiles = {'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jaso
 %     'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 lungcancercells\DAPI\FOV2_DAPI_gainVariation\20x_gain100_lamp100_004.tif'};
 
 
-chipParsCur1.gain = mean(chipPars.gainQ(3,2)); % based on gain in the image.. 50 100 300..
-chipParsCur1.adFactor = mean(chipPars.aduQ(2));
-chipParsCur1.countOffset = mean(chipPars.deltaQ(3,2));
-chipParsCur1.roNoise = mean(chipPars.sigmaQ(3,2));
-    
+% chipParsCur1.gain = mean(chipPars.gainQ(3,2)); % based on gain in the image.. 50 100 300..
+% chipParsCur1.adFactor = mean(chipPars.aduQ(2));
+% chipParsCur1.countOffset = mean(chipPars.deltaQ(3,2));
+% chipParsCur1.roNoise = mean(chipPars.sigmaQ(3,2));
+chipParsCur1     = Core.chippars_specific_gain(chipParsAll,3);
 % chipParsCur1.gain = mean(chipPars.gainQ(4,2)); % based on gain in the image.. 50 100 300..
 % chipParsCur1.adFactor = mean(chipPars.aduQ(2));
 % chipParsCur1.countOffset = mean(chipPars.deltaQ(4,2));
@@ -148,6 +150,6 @@ outFig4 = { fullfile(figFold,'Fig4a.eps'),fullfile(figFold,'FigS4a.eps');fullfil
 % outFig3 = 'C:\Users\Lenovo\postdoc\PAPERS\emccd-paper\draft\Figs\Fig4a.eps';
 
 
-fig4_segmentation(imagefiles,chipParsFig4,outFig4,0.01,0.00001);
+fig4_segmentation(imagefiles,chipParsFig4,outFig4,0.01,0.01);
 % fig4_segmentation(chipPars,'beads_low_conc_100x_gain100_lamp100_013.tif')
 

@@ -6,7 +6,7 @@
 
 % Move panel B to figure 2
 
-s = 2;
+s = 1;
 if s == 1
     outFigS ='output\FigS5.eps'
     outFig2 = fullfile(figFold,'Fig1.eps');
@@ -52,7 +52,7 @@ for idx = 1:size(matrixBlocks,3);
     toc
 end
 
-f = figure,
+f = figure,tiledlayout(2,3);
 nexttile
 imagesc(reshape(intthreshPars,[sqrt(N) sqrt(N)]));colorbar;colormap gray
 title(['a) $N_{icr}^{bg}$ scores'],'Interpreter','latex')
@@ -72,12 +72,17 @@ imagesc(logical(reshape(cellfun(@(x) x.passthresh,statsAll),[sqrt(N) sqrt(N)])))
 title('d) Passed the goodness-of-fit test','Interpreter','latex')
 print(outFigS,'-depsc','-r300');
 
+
+
+
 %% REDO FIG2 with tiles
 
 %
 % 
 
     figure
+    set(gcf, 'InvertHardCopy', 'off');
+    set(gcf,'color','white');
     tiledlayout(1,2,'TileSpacing','compact','Padding','compact')
     nexttile
     pixelsize = 160;
@@ -103,9 +108,13 @@ print(outFigS,'-depsc','-r300');
     nPixels = 1e4/pixelsize;
     x = [5, 5 + nPixels ];
     y = [0.9*size(sampIm,1) , 0.9*size(sampIm,1)];
-    plot(x,y,'Linewidth',8,'Color',[1 1 1])
-    text(0,0.05,'10 microns','Fontsize',10,'Color',[1 1 1],'Units','normalized')
+    plot(x,y,'Linewidth',8,'Color','white')
+    text(0,0.05,'10 microns','Fontsize',10,'Color','white','Units','normalized')
     title('(a)','Interpreter','latex')
+    set(gcf, 'InvertHardCopy', 'off');
+        set(gcf,'color','white');
+
+% print(outFig2,'-depsc','-r300');
 
 %     nexttile
 %     outL = imtile(lambdaPars);
@@ -149,3 +158,15 @@ lgnd.Layout.Tile = 'south';
 % print('C:\Users\Lenovo\postdoc\PAPERS\emccd-paper\draft\Figs\Fig4.eps','-depsc','-r300')
 print(outFig2,'-depsc','-r300');
 
+%%
+
+    figure
+        set(gcf, 'InvertHardCopy', 'off');
+    set(gcf,'color','white');
+%     set(gca,'color','w');
+    tiledlayout(2,2,'TileSpacing','compact','Padding','compact')
+
+import Core.tile_fig;
+tile_fig(statsAll,intthreshPars,lambdaBg,matrixBlocks,1,'a','b')
+tile_fig(statsAll,intthreshPars,lambdaBg,matrixBlocks,57,'c','d')
+print('output\FigS8.eps','-depsc','-r300');

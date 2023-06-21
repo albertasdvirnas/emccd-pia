@@ -200,10 +200,12 @@ for i=1:length(imageFilenames)
 %     ax1=nexttile;
  %     imshow(J,'InitialMagnification','fit');
     axes(axtile{i})
-   plot_res(images,img,colorValU,lineWidthBoundaries)
+
+
+%    plot_res(images,img,colorValU,lineWidthBoundaries)
 
 %     figure
-%    plot_out(images,bIm,nReg,colorValU,lineWidthBoundaries)
+   plot_out(images,bIm,nReg,colorValU,lineWidthBoundaries)
    title(titles{i},'Interpreter','latex')
         
 end
@@ -272,7 +274,17 @@ function plot_out(images,boundariesCellArray,nReg,colorValU,lineWidthBoundaries)
              colorVal = 1 + floor(colorValU(regIdx)*255); % in the range [1,256]
              lineColor = parMap(colorVal,:);    
                  plot(boundariesReg(:,2),boundariesReg(:,1),'LineWidth',lineWidthBoundaries,'Color',lineColor)
-        end   
+         end   
+
+    pixelsize = 160;
+    nPixels = 1e4/pixelsize;
+    x = [5, 5 + nPixels ];
+    y = [0.9*size( images.imAverage,1) , 0.9*size( images.imAverage,1)];
+    plot(x,y,'Linewidth',4,'Color','white')
+    text(0,0.05,'10 microns','Fontsize',10,'Color','white','Units','normalized')
+%     title('(a)','Interpreter','latex')
+    set(gcf, 'InvertHardCopy', 'off');
+    set(gcf,'color','white');
     
 
 

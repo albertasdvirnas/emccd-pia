@@ -100,7 +100,7 @@ function plot_binarization_evaluation_results_beads(outFig3,results)
     tiledlayout(3,2,'TileSpacing','tight');
  
     nexttile
-    plot(snr,results.lambdaBgEst,'red-d','linewidth',2);
+    plot(snr,results.lambdaBgEst,'m-o','linewidth',2);
     hold on
     y = results.lambdaBgGroundTruth.*ones(1,length(snr));
     plot(snr,y,'black--','linewidth',2)

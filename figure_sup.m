@@ -82,7 +82,7 @@ for idx1=1:3:7
     plot([1 length(stats{idx1}.chi2Score)],[gofVal gofVal],'red')
     set(gca, 'YScale', 'log')
     if idx1==7
-        xlabel('Image counts','Interpreter','latex')
+        xlabel('Image count truncation point','Interpreter','latex')
         ylabel('$\chi^2$ score','Interpreter','latex')
     end
 end

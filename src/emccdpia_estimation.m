@@ -159,7 +159,7 @@ legendEntry = strcat(['Fit, $\lambda_{bg} =  ' num2str(lambdaBg,2) ', N_{icr}^{b
 lgnd = legend('Image counts, true background','Image counts, not true background',legendEntry,'Interpreter','latex');
 lgnd.Layout.Tile = 'south';
 % print('C:\Users\Lenovo\postdoc\PAPERS\emccd-paper\draft\Figs\Fig4.eps','-depsc','-r300')
-% print(outFig,'-depsc','-r300');
+print(outFig,'-depsc','-r300');
 
 
 %  % Add error bars

@@ -156,7 +156,7 @@ function plot_binarization_evaluation_results_beads(outFig3,results)
     plot(snr,results.tmrOtsu,'--x','linewidth',2);
     plot(snr,results.tmrEst,'.-','linewidth',2)
     hold off
-    lgnd = legend("EMCCD-PIA","Otsu's method","a priori estimate")
+    lgnd = legend("EMCCD-PIA binarization","Otsu's method","EMCCD-PIA a priori estimate")
     lgnd.Layout.Tile = 'north';
     fig = gcf;
     fig.PaperUnits = 'inches';

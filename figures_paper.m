@@ -33,6 +33,7 @@ outFig = fullfile(figFold,'FigS2.eps');
 [chipParsS,chipParsSAll] = fig1_calibration(no_gain_mat, gain_mat,outFig);
 
 %% FigS1.eps - real data
+rng('default')
 no_gain_mat = '100x.mat';
 gain_mat = '20x.mat';
 

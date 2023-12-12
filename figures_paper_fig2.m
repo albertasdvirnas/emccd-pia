@@ -52,7 +52,8 @@ for idx = 1:size(matrixBlocks,3);
     toc
 end
 
-f = figure,tiledlayout(2,3);
+f = figure,
+tiledlayout(2,2);
 nexttile
 imagesc(reshape(intthreshPars,[sqrt(N) sqrt(N)]));colorbar;colormap gray
 title(['a) $N_{icr}^{bg}$ scores'],'Interpreter','latex')
@@ -83,8 +84,8 @@ print(outFigS,'-depsc','-r300');
     figure
     set(gcf, 'InvertHardCopy', 'off');
     set(gcf,'color','white');
-    tiledlayout(1,2,'TileSpacing','compact','Padding','compact')
-    nexttile
+    tl = tiledlayout(10,20,'TileSpacing','compact','Padding','compact');
+    nexttile([10,10])
     pixelsize = 160;
 
     sampIm = mat2gray(image.imAverage);
@@ -128,7 +129,7 @@ structRes = statsAll{idx1};
 intThreshBg =   intthreshPars(idx1);
 histAll = statsAll{idx1}.histAll;
 stats = statsAll{idx1}.stats;
-    nexttile    
+ t=   nexttile([10,10]) ;
 binPos = 1:structRes.LU(2) + 0.5;
 [minVal , idx] = min(abs(binPos - intThreshBg));
 h1 = bar(binPos(1:idx),histAll(1:idx),1); 
@@ -153,8 +154,42 @@ title(['(b) Fit for tile \{',num2str(a),',',num2str(b) , '\}'],'Interpreter','la
 % axis equal
 pbaspect([1 0.8 0.8])
 legendEntry = strcat(['Fit, $\lambda_{bg} =  ' num2str(lambdaBg,2) ', N_{icr}^{bg}=' num2str(intThreshBg) '$']);
-lgnd = legend('Image counts, true background','Image counts, not true background',legendEntry,'Interpreter','latex');
-lgnd.Layout.Tile = 'south';
+lgnd = legend('Image counts, true background','Image counts, not true background',legendEntry,'Interpreter','latex','Location','southoutside');
+% lgnd.Layout.Tile = 'south';
+
+xlim([20 60]);
+
+s = 1;
+if s == 1
+    hold(t,'on');
+    left = 45;
+    bottom = 0;
+    width = 15;
+    height = 25;
+    r = rectangle('Position',[left bottom width height],'EdgeColor','red','LineWidth',1.5)
+    ax2 = axes(tl);
+    ax2.Layout.Tile = [77];
+        ax2.Layout.TileSpan = [2 4];
+
+    h1 = bar(ax2,binPos(1:idx),histAll(1:idx),1); 
+    set(h1,'FaceColor',[0.4 0.6 0.9])
+    set(h1,'EdgeColor','none')
+    hold on
+    h2 = bar(ax2,binPos(idx+1:end),histAll(idx+1:end-1),1); 
+    set(h2,'FaceColor',[1 0.5 0.3])
+    set(h2,'EdgeColor','none')
+    hold on
+    plot(ax2, binCountsFit,'--','Color','black','LineWidth',2)
+    ax2.XLim = [left left+width];
+    ax2.YLim = [bottom bottom+width];
+    ax2.XTick = [];
+    ax2.YTick = [];
+
+    ax2.Box = 'on';
+    ax2.XAxis.Color = 'red';
+    ax2.YAxis.Color = 'red';
+    title(ax2,'Magnified','Interpreter','latex')
+end
 % print('C:\Users\Lenovo\postdoc\PAPERS\emccd-paper\draft\Figs\Fig4.eps','-depsc','-r300')
 print(outFig2,'-depsc','-r300');
 

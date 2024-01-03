@@ -29,6 +29,8 @@ calculate_moments(fullfile(foldRealData,'20x\*.tif'));
 no_gain_mat = 'synth100x.mat';
 gain_mat = 'synth100x.mat';
 
+rng('default')
+
 outFig = fullfile(figFold,'FigS2.eps');
 [chipParsS,chipParsSAll] = fig1_calibration(no_gain_mat, gain_mat,outFig);
 
@@ -40,6 +42,10 @@ gain_mat = '20x.mat';
 outFig = fullfile(figFold,'FigS1.eps');
 [chipPars,chipParsAll] = fig1_calibration(no_gain_mat, gain_mat,outFig);
 
+table_1
+
+mdl = fitlm(gainNames(2:end),chipParsAll.gain(2:end))
+p = signrank(gainNames(2:end),chipParsAll.gain(2:end))
 %% FigS2.eps / on synthetic image
 
 %% Fig1.eps - real experiment
@@ -78,6 +84,8 @@ tic
 min(stats.chi2Score)
 toc
 %% Fig2.eps
+rng('default')
+
 SNRVals =3:0.5:10;  
 filenames = simulate_random_beads_full(100, 20, 100, 1/1000,SNRVals, 1, 'synthSingleFrameNew'); % zoom 100x
 
@@ -95,6 +103,8 @@ chipParsCur.pval = 0.01;
 
 [results,stats] = emccdpia_thresholding(filenames{1}{1}(1:end),SNRVals,chipParsCur,outFig3,chipParsCur.pval,0);
 
+
+figure_sup; % supplementary figure S4
 
 % chipParsCur.gain  = mean(chipParsS.gain{3});
 % chipParsCur.countOffset  = mean(chipParsS.countOffset{3});
@@ -151,6 +161,13 @@ outFig4 = { fullfile(figFold,'Fig4a.eps'),fullfile(figFold,'FigS4a.eps');fullfil
 % outFig3 = 'C:\Users\Lenovo\postdoc\PAPERS\emccd-paper\draft\Figs\Fig4a.eps';
 
 
-fig4_segmentation(imagefiles,chipParsFig4,outFig4,0.01,0.01);
+fig4_segmentation(imagefiles, chipParsFig4, outFig4, 0.01,0.01);
 % fig4_segmentation(chipPars,'beads_low_conc_100x_gain100_lamp100_013.tif')
 
+
+%% Otsu vs Adaptive FigS9
+
+fig_adaptive
+
+%% Segmentation another example FigS10
+figS10_segmentation

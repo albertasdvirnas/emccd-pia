@@ -35,6 +35,7 @@ function [] = tile_fig(statsAll,intthreshPars,lambdaBg,matrixBlocks,idx1,aa,bb)
     
 structRes = statsAll{idx1};
 intThreshBg =   intthreshPars(idx1);
+lambdaBg = lambdaBg(idx1);
 histAll = statsAll{idx1}.histAll;
 stats = statsAll{idx1}.stats;
  nexttile    

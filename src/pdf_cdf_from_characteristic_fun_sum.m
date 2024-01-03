@@ -38,7 +38,7 @@ function [pdfEmccd,cdfEmccd,L,U] = pdf_cdf_from_characteristic_fun_sum(intensiti
 %     offset = chipPars.countOffset;
 %     roNoise = chipPars.roNoise;
 
-    lambda = M*lambda;
+    lambda = sum(lambda);
     offset = M*offset;
     roNoise = sqrt(M)*roNoise;
     % offset = 
@@ -79,12 +79,15 @@ end
     cf = char_fun(t , roNoise,lambda,r,offset,M);
 
         % y is the grid for our pdf (from L to U)
-    y = intensities;
+    y = L:min(U,intensities);
     
     % TODO: change to PMF
     % calculate main integral
     pdfEmccd = trapezoidal_pdf(y,dt,t,cf);
-    cdfEmccd = trapezoidal_cdf(y,dt,t,cf,EX);
+
+    cdfEmccd = cumsum(pdfEmccd);
+
+%     cdfEmccd = trapezoidal_cdf(y,dt,t,cf,EX);
 
    
     

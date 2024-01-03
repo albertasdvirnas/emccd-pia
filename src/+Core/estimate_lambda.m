@@ -47,6 +47,7 @@ function [lambdaBg,intThreshBg,structRes ] = ...
     structRes.lowestIntThresh = lowestIntThresh;
     %
     sortI = sort(intensities);
+    sortI =sortI(~isnan(sortI));
     S = numel(sortI);
     Nthresh = sortI(round(S/2));
 
@@ -80,13 +81,15 @@ function [lambdaBg,intThreshBg,structRes ] = ...
 
     import Core.chi2_calc;
     for Nthresh = intVals;
-        [lambdaBgMLE(Nthresh), pci, pdf, cdf] = est_lambda(histAll,lamGuess, Nthresh, gain, adFactor, countOffset, roNoise,structRes.LU,opt);
-%         [chi2Score(Nthresh)] = chi2_calc(histAll, pdf, cdf, Nthresh);
-        [chi2Score(Nthresh)] = chi2_calc(histAll, pdf, cdf, Nthresh,structRes.LU, nQuantiles);
-%         [chi2Score(Nthresh)] = chi2_calc(histAll, pdf, cdf, Nthresh,structRes.LU);
+%         if Nthresh > structRes.LU(1)
+            [lambdaBgMLE(Nthresh), pci, pdf, cdf] = est_lambda(histAll,lamGuess, Nthresh, gain, adFactor, countOffset, roNoise,structRes.LU,opt);
+    %         [chi2Score(Nthresh)] = chi2_calc(histAll, pdf, cdf, Nthresh);
+            [chi2Score(Nthresh)] = chi2_calc(histAll, pdf, cdf, Nthresh,structRes.LU, nQuantiles);
+    %         [chi2Score(Nthresh)] = chi2_calc(histAll, pdf, cdf, Nthresh,structRes.LU);
 
-        distVals{Nthresh}.pdf = pdf;
-        distVals{Nthresh}.cdf = cdf;
+            distVals{Nthresh}.pdf = pdf;
+            distVals{Nthresh}.cdf = cdf;
+%         end
 
     end
 % figure,plot(chi2Score)

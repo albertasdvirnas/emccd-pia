@@ -1,20 +1,31 @@
-function [] = fig4_segmentation(imageFilenames, chipParsCur,outFig,pValThresh,pValThreshBinarization)
+function [] = figS10_segmentation(chipParsSAll,outFig)
 
-if nargin < 1
-    imageFilenames = {'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\Jason_oskar_20191125_ixon_statistics\100x\100x_gain100_lamp100_013.tif', 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\2019-12-13 experiments\2019-12-13 lungcancercells\DAPI\FOV1_DAPI\20x_gain300_lamp100_001.tif'};
-    
-end
+%(imageFilenames, chipParsCur,outFig,pValThresh,pValThreshBinarization)
+
+% calibFold = 'C:\Users\Lenovo\postdoc\DATA\Calibration\fluorsegmen_project\';
+% imageFilenames = {'2019-12-13 experiments\2019-12-13 lungcancercells\DAPI\FOV4_DAPI and FITC\20x_gain300_lamp100_FITC_010.tif'};
+
+calibFold = 'C:\Users\Lenovo\git\dnadevcode\emccd-pia\synthSingleFrameImage\100x\';
+imageFilenames = {'synth100x_gain100_lamp28.553.tif'};
+
+% chipParsCur     = Core.chippars_specific_gain(chipParsAll,4);
+chipParsCur = Core.chippars_specific_gain(chipParsSAll,3);
+
+
+% chipParsCur     = Core.chippars_specific_gain(chipParsAll,4);
+
+
 
     ff = figure;
-    t=tiledlayout(1,2);
+    t=tiledlayout(1,length(imageFilenames));
     axtile =[];
     axtile{1}= nexttile(t);
-    axtile{2} = nexttile(t);
+%     axtile{2} = nexttile(t);
 % Input PARAMETERS 
-if nargin < 4
+% if nargin < 4
 pValThresh = 0.01; % for chi2
 pValThreshBinarization = 1E-2; % for binarization
-end
+% end
 T = 64; %  tile size
 
 allowedGapLength = 1;        % allowed gap length. In sorted list of 
@@ -23,23 +34,8 @@ allowedGapLength = 1;        % allowed gap length. In sorted list of
                              % regions to be said to belong to 
                              % the "noise regions" cluster. 
 images.runNo = 1;
-
-%
-% Script for generating a segmentated image (white regions = signal, 
-% and black regions = background) from  an input fluroescence image. 
-
-    % Hard-coded variables
-%     fontSizePlot = 12;         % fontsizes in plots
-%     lineWidthPlot = 2;         % linewidth in plots
 lineWidthBoundaries = 1;   % in images, this gives the 
-                               % size of the overlaid boundaries
-%     nMedians = 4;              % upper threshold (in terms of number of medians)
-                               % when setting the constrast
-     
 
-% Actions to be performed on the segmentation output
-%     NOTE: No error handling of actions associated 
-%     with missing required fields in segOutput.
 actions.plotBinarizedImage = 1;      % Plot binarized image
 actions.showOriginalRegions = 0;     % Show plots of boundaries of original regions 
                                      % obtained from binarized image
@@ -61,7 +57,7 @@ actions.plotHistBlackRegions = 0;    % plot a histogram of intensities over blac
                                      
                                      
 for i=1:length(imageFilenames)
-    imageFilename = imageFilenames{i};
+    imageFilename = fullfile(calibFold,imageFilenames{i});
 
     % Images and associated information                             
     im = imread(imageFilename); % Specify target image
@@ -74,7 +70,7 @@ for i=1:length(imageFilenames)
     % Perform image segmentration
     t = cputime;  
 
-    chipPars = chipParsCur{i};
+    chipPars = chipParsCur;
 
     matrixBlocks = reshape(permute(reshape( double(images.imAverage),T,size( images.imAverage,1)/T,T,[]),[1,3,2,4]),T,T,[]);
     
@@ -83,9 +79,10 @@ for i=1:length(imageFilenames)
     lambdaPars = nan(1,size(matrixBlocks,3));
     intthreshPars = nan(1,size(matrixBlocks,3));
     
-    statsAll = cell(1,size(matrixBlocks,3));
-    for idx = 1:size(matrixBlocks,3);
+    statsAll = cell(1,N);
+    for idx = 1:N;
         image2.imAverage = matrixBlocks(:,:,idx);
+        image2.imAverage(image2.imAverage> median(image2.imAverage(:)))=nan;  
     
         tic
         [lambdaBg, intThreshBg, stats] = emccdpia_estimation(chipPars,[],image2,pValThresh,0);
@@ -181,7 +178,6 @@ for i=1:length(imageFilenames)
     end
 
 
-    
     for regIdx=1:nReg
         pixelvals = images.imAverage(img==labeLocs(regIdx));
         summedInt(regIdx) = sum(pixelvals);
@@ -215,15 +211,13 @@ for i=1:length(imageFilenames)
 
 
 % %    plot_res(images,img,colorValU,lineWidthBoundaries)
-CC.PixelIdxList = bIm;
-CC.Connectivity = 26;
-CC.ImageSize = size(images.imAverage);
-CC.NumObjects = length(bIm);
-
-stats = regionprops(CC,'Eccentricity');
-arrayfun(@(x) stats(x).Eccentricity,1:length(bIm))
-arrayfun(@(x) sum(sum(img==labeLocs(x))),1:length(labeLocs))
-
+% CC.PixelIdxList = bIm;
+% CC.Connectivity = 26;
+% CC.ImageSize = size(images.imAverage);
+% CC.NumObjects = length(bIm);
+% 
+% stats = regionprops(CC,'Eccentricity');
+% arrayfun(@(x) stats(x).Eccentricity,1:length(bIm))
 % 
 % figure,imagesc(img==labeLocs(10))
 %     figure
@@ -231,8 +225,9 @@ arrayfun(@(x) sum(sum(img==labeLocs(x))),1:length(labeLocs))
    title(titles{i},'Interpreter','latex')
         
 end
+
     
-    print(ff,outFig{1,1},'-depsc','-r300')
+    print(ff,outFig,'-depsc','-r300')
 
 end
 

@@ -87,4 +87,6 @@ for idx1=1:3:7
     end
 end
 
-print('output/FigS4.eps','-depsc','-r300');
+print('output/Fig2Sb.eps','-depsc','-r300');
+% print('output/FigS4.eps','-depsc','-r300');
+

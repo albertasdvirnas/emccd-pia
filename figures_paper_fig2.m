@@ -6,7 +6,7 @@
 
 % Move panel B to figure 2
 
-s = 1;
+s = 2;
 if s == 1
     outFigS ='output\FigS5.eps'
     outFig2 = fullfile(figFold,'Fig1.eps');
@@ -113,7 +113,7 @@ print(outFigS,'-depsc','-r300');
     text(0,0.05,'10 microns','Fontsize',10,'Color','white','Units','normalized')
     title('(a)','Interpreter','latex')
     set(gcf, 'InvertHardCopy', 'off');
-        set(gcf,'color','white');
+    set(gcf,'color','white');
 
 % print(outFig2,'-depsc','-r300');
 
@@ -153,23 +153,33 @@ ylabel('Histogram counts','Interpreter','latex')
 title(['(b) Fit for tile \{',num2str(a),',',num2str(b) , '\}'],'Interpreter','latex')
 % axis equal
 pbaspect([1 0.8 0.8])
-legendEntry = strcat(['Fit, $\lambda_{bg} =  ' num2str(lambdaBg,2) ', N_{icr}^{bg}=' num2str(intThreshBg) '$']);
+legendEntry = strcat(['Fit, $\lambda_{bg} =  ' num2str(lambdaPars(idx1),2) ', N_{icr}^{bg}=' num2str(intthreshPars(idx1)) '$']);
 lgnd = legend('Image counts, true background','Image counts, not true background',legendEntry,'Interpreter','latex','Location','southoutside');
 % lgnd.Layout.Tile = 'south';
 
-xlim([20 60]);
-
-s = 1;
 if s == 1
+    xlim([20 60]);
+else
+    xlim([30 120]);
+end
+
     hold(t,'on');
+if s == 1
     left = 45;
     bottom = 0;
     width = 15;
     height = 25;
+else
+    left = 80;
+    bottom = 0;
+    width = 40;
+    height = 25;
+end
+
     r = rectangle('Position',[left bottom width height],'EdgeColor','red','LineWidth',1.5)
     ax2 = axes(tl);
     ax2.Layout.Tile = [77];
-        ax2.Layout.TileSpan = [2 4];
+    ax2.Layout.TileSpan = [2 4];
 
     h1 = bar(ax2,binPos(1:idx),histAll(1:idx),1); 
     set(h1,'FaceColor',[0.4 0.6 0.9])
@@ -189,7 +199,7 @@ if s == 1
     ax2.XAxis.Color = 'red';
     ax2.YAxis.Color = 'red';
     title(ax2,'Magnified','Interpreter','latex')
-end
+
 % print('C:\Users\Lenovo\postdoc\PAPERS\emccd-paper\draft\Figs\Fig4.eps','-depsc','-r300')
 print(outFig2,'-depsc','-r300');
 
@@ -202,6 +212,6 @@ print(outFig2,'-depsc','-r300');
     tiledlayout(2,2,'TileSpacing','compact','Padding','compact')
 
 import Core.tile_fig;
-tile_fig(statsAll,intthreshPars,lambdaBg,matrixBlocks,1,'a','b')
-tile_fig(statsAll,intthreshPars,lambdaBg,matrixBlocks,57,'c','d')
+tile_fig(statsAll,intthreshPars,lambdaPars,matrixBlocks,1,'a','b')
+tile_fig(statsAll,intthreshPars,lambdaPars,matrixBlocks,57,'c','d')
 print('output\FigS8.eps','-depsc','-r300');

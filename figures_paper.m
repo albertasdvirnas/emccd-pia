@@ -161,7 +161,7 @@ outFig4 = { fullfile(figFold,'Fig4a.eps'),fullfile(figFold,'FigS4a.eps');fullfil
 % outFig3 = 'C:\Users\Lenovo\postdoc\PAPERS\emccd-paper\draft\Figs\Fig4a.eps';
 
 
-fig4_segmentation(imagefiles, chipParsFig4, outFig4, 0.01,0.01);
+outres = fig4_segmentation(imagefiles, chipParsFig4, outFig4, 0.01,0.01);
 % fig4_segmentation(chipPars,'beads_low_conc_100x_gain100_lamp100_013.tif')
 
 

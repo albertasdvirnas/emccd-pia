@@ -6,7 +6,7 @@ function [] = figS10_segmentation(chipParsSAll,outFig)
 % imageFilenames = {'2019-12-13 experiments\2019-12-13 lungcancercells\DAPI\FOV4_DAPI and FITC\20x_gain300_lamp100_FITC_010.tif'};
 
 calibFold = 'C:\Users\Lenovo\git\dnadevcode\emccd-pia\synthSingleFrameImage\100x\';
-imageFilenames = {'synth100x_gain100_lamp28.553.tif'};
+imageFilenames = {'synth100x_gain100_lamp28.553.tif','synth100x_gain100_lamp82.2408.tif'};
 
 % chipParsCur     = Core.chippars_specific_gain(chipParsAll,4);
 chipParsCur = Core.chippars_specific_gain(chipParsSAll,3);
@@ -20,7 +20,7 @@ chipParsCur = Core.chippars_specific_gain(chipParsSAll,3);
     t=tiledlayout(1,length(imageFilenames));
     axtile =[];
     axtile{1}= nexttile(t);
-%     axtile{2} = nexttile(t);
+    axtile{2} = nexttile(t);
 % Input PARAMETERS 
 % if nargin < 4
 pValThresh = 0.01; % for chi2

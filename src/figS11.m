@@ -8,6 +8,9 @@ I_cropped = I(400:400+511, 465:465+511);
 % imcredit('Image courtesy of Dr. Ramiro Massol')
 
 
+% T = adaptthresh(I_cropped);
+% Tb =  imbinarize(I_cropped, T);
+
 I_eq = adapthisteq(I_cropped);
 imshow(I_eq)
 
@@ -20,10 +23,12 @@ bw4 = bwareaopen(bw3, 40);
 bw4_perim = bwperim(bw4);
 overlay1 = imoverlay(I_eq, bw4_perim, [.3 1 .3]);
 imshow(overlay1)
-
+% 
 I = I_eq;
 
 I(~bw4) = nan;
+
+% I(~Tb) = nan;
 
 %%
 rng('default')
@@ -50,7 +55,7 @@ chipParsCur.pval = 0.01;
 figure_sup
 
 
-figS10_segmentation(chipParsSAll, 'output\Fig2Sc.eps')
+figS10_segmentation(chipParsSAll, 'output\FigS10.eps')
 
 %(imageFilenames,
 
